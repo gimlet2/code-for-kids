@@ -285,7 +285,9 @@ for _ in range(9):
         if (normalized === 90) return { dx: 0, dy: -1 };
         if (normalized === 180) return { dx: -1, dy: 0 };
         if (normalized === 270) return { dx: 0, dy: 1 };
-        throw new Error("Heading must be in 90-degree turns.");
+        throw new Error(
+          `Invalid heading: ${heading}. Heading must be a multiple of 90 degrees (0, 90, 180, or 270).`
+        );
       }
 
       function normalizeHeading(heading) {
@@ -421,7 +423,7 @@ for _ in range(9):
 
         clearOutput();
         resetTask();
-        const script = `${codeEl.value}\n`;
+        const userScript = `${codeEl.value}\n`;
         const prelude = [
           "from kid_game import move_forward, turn, collect",
           "globals()['move_forward']=move_forward",
@@ -430,7 +432,7 @@ for _ in range(9):
         ].join("\n");
 
         try {
-          await state.pyodide.runPythonAsync(`${prelude}\n${script}`);
+          await state.pyodide.runPythonAsync(`${prelude}\n${userScript}`);
           if (state.itemsLeft.length > 0) {
             print(`Items left: ${state.itemsLeft.length}`);
           }
