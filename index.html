@@ -305,7 +305,9 @@ for _ in range(9):
             const nextX = state.actor.x + dx;
             const nextY = state.actor.y + dy;
             if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) {
-              throw new Error("The actor cannot move outside the field.");
+              throw new Error(
+                `Cannot move to (${nextX}, ${nextY}) - the field is only ${task.size}×${task.size}.`
+              );
             }
             if (isWall(task, nextX, nextY)) {
               throw new Error("Bump! A wall is blocking the way.");
@@ -319,7 +321,10 @@ for _ in range(9):
       }
 
       function turn(degrees) {
-        if (degrees % 90 !== 0) {
+        if (
+          !Number.isFinite(degrees) ||
+          Math.abs((degrees / 90) - Math.round(degrees / 90)) > Number.EPSILON
+        ) {
           throw new Error(
             "Turn degrees must be a multiple of 90 (e.g., 90, -90, 180, 270)."
           );
@@ -333,7 +338,9 @@ for _ in range(9):
           (item) => item.x === state.actor.x && item.y === state.actor.y
         );
         if (index === -1) {
-          throw new Error("No item to collect on this tile.");
+          throw new Error(
+            `No item to collect here. The actor is at position (${state.actor.x}, ${state.actor.y}).`
+          );
         }
         state.itemsLeft.splice(index, 1);
         draw();
