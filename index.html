@@ -326,7 +326,12 @@ for _ in range(9):
       }
 
       function turn(degrees) {
-        if (!Number.isFinite(degrees) || !isMultipleOf90(degrees)) {
+        if (!Number.isFinite(degrees)) {
+          throw new Error(
+            "Turn degrees must be a multiple of 90 (e.g., 90, -90, 180, 270)."
+          );
+        }
+        if (!isMultipleOf90(degrees)) {
           throw new Error(
             "Turn degrees must be a multiple of 90 (e.g., 90, -90, 180, 270)."
           );
@@ -435,9 +440,8 @@ for _ in range(9):
         const userScript = `${codeEl.value}\n`;
         const prelude = [
           "from kid_game import move_forward, turn, collect",
-          "globals()['move_forward']=move_forward",
-          "globals()['turn']=turn",
-          "globals()['collect']=collect",
+          "for name in ('move_forward', 'turn', 'collect'):",
+          "    globals()[name] = locals()[name]",
         ].join("\n");
 
         try {
