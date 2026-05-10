@@ -299,7 +299,11 @@ for _ in range(9):
       }
 
       function isMultipleOf90(value) {
-        return Math.abs((value / 90) - Math.round(value / 90)) <= TURN_TOLERANCE;
+        const remainder = value % 90;
+        return (
+          Math.abs(remainder) <= TURN_TOLERANCE ||
+          Math.abs(Math.abs(remainder) - 90) <= TURN_TOLERANCE
+        );
       }
 
       function moveForward(steps = 1) {
