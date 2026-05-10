@@ -156,6 +156,12 @@
         codePrefix: "code-for-kids-code-",
       };
       const FULL_ROTATION_DEGREES = 360;
+      const STAR_SIZE_RATIO = 0.45;
+      const STAR_OFFSET_X = 0.2;
+      const STAR_OFFSET_Y = 0.68;
+      const ACTOR_TIP_X = 0.3;
+      const ACTOR_BASE_X = 0.2;
+      const ACTOR_BASE_Y = 0.22;
 
       const tasks = [
         {
@@ -274,9 +280,7 @@ for _ in range(9):
       }
 
       function headingVector(heading) {
-        const normalized =
-          ((heading % FULL_ROTATION_DEGREES) + FULL_ROTATION_DEGREES) %
-          FULL_ROTATION_DEGREES;
+        const normalized = normalizeHeading(heading);
         if (normalized === 0) return { dx: 1, dy: 0 };
         if (normalized === 90) return { dx: 0, dy: -1 };
         if (normalized === 180) return { dx: -1, dy: 0 };
@@ -284,31 +288,41 @@ for _ in range(9):
         throw new Error("Heading must be in 90-degree turns.");
       }
 
+      function normalizeHeading(heading) {
+        return (
+          ((heading % FULL_ROTATION_DEGREES) + FULL_ROTATION_DEGREES) %
+          FULL_ROTATION_DEGREES
+        );
+      }
+
       function moveForward(steps = 1) {
         const task = currentTask();
-        for (let i = 0; i < steps; i += 1) {
-          const { dx, dy } = headingVector(state.actor.heading);
-          const nextX = state.actor.x + dx;
-          const nextY = state.actor.y + dy;
-          if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) {
-            throw new Error("The actor cannot move outside the field.");
+        try {
+          for (let i = 0; i < steps; i += 1) {
+            const { dx, dy } = headingVector(state.actor.heading);
+            const nextX = state.actor.x + dx;
+            const nextY = state.actor.y + dy;
+            if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) {
+              throw new Error("The actor cannot move outside the field.");
+            }
+            if (isWall(task, nextX, nextY)) {
+              throw new Error("Bump! A wall is blocking the way.");
+            }
+            state.actor.x = nextX;
+            state.actor.y = nextY;
           }
-          if (isWall(task, nextX, nextY)) {
-            throw new Error("Bump! A wall is blocking the way.");
-          }
-          state.actor.x = nextX;
-          state.actor.y = nextY;
+        } finally {
+          draw();
         }
-        draw();
       }
 
       function turn(degrees) {
         if (degrees % 90 !== 0) {
-          throw new Error("Use turn with values like 90, -90, 180.");
+          throw new Error(
+            "Turn degrees must be a multiple of 90 (e.g., 90, -90, 180, 270)."
+          );
         }
-        state.actor.heading =
-          (state.actor.heading + degrees + FULL_ROTATION_DEGREES) %
-          FULL_ROTATION_DEGREES;
+        state.actor.heading = normalizeHeading(state.actor.heading + degrees);
         draw();
       }
 
@@ -347,8 +361,12 @@ for _ in range(9):
         }
 
         for (const item of state.itemsLeft) {
-          ctx.font = `${Math.floor(tile * 0.45)}px sans-serif`;
-          ctx.fillText("⭐", item.x * tile + tile * 0.2, item.y * tile + tile * 0.68);
+          ctx.font = `${Math.floor(tile * STAR_SIZE_RATIO)}px sans-serif`;
+          ctx.fillText(
+            "⭐",
+            item.x * tile + tile * STAR_OFFSET_X,
+            item.y * tile + tile * STAR_OFFSET_Y
+          );
         }
 
         const cx = state.actor.x * tile + tile / 2;
@@ -360,9 +378,9 @@ for _ in range(9):
         ctx.rotate(-angle);
         ctx.fillStyle = "#2563eb";
         ctx.beginPath();
-        ctx.moveTo(tile * 0.3, 0);
-        ctx.lineTo(-tile * 0.2, -tile * 0.22);
-        ctx.lineTo(-tile * 0.2, tile * 0.22);
+        ctx.moveTo(tile * ACTOR_TIP_X, 0);
+        ctx.lineTo(-tile * ACTOR_BASE_X, -tile * ACTOR_BASE_Y);
+        ctx.lineTo(-tile * ACTOR_BASE_X, tile * ACTOR_BASE_Y);
         ctx.closePath();
         ctx.fill();
         ctx.restore();
