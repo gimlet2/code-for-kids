@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Code for Kids</title>
+    <style>
+      :root {
+        font-family: Arial, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #1f2937;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 420px) 1fr;
+        gap: 16px;
+        padding: 16px;
+        min-height: 100vh;
+        box-sizing: border-box;
+      }
+
+      .panel,
+      .game-panel {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        padding: 14px;
+      }
+
+      .controls {
+        display: grid;
+        gap: 10px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 270px;
+        resize: vertical;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        box-sizing: border-box;
+        padding: 10px;
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+      }
+
+      select,
+      button {
+        font-size: 14px;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        padding: 8px 10px;
+      }
+
+      button {
+        background: #2563eb;
+        color: white;
+        border: 0;
+        cursor: pointer;
+      }
+
+      .secondary {
+        background: #4b5563;
+      }
+
+      .status {
+        font-size: 14px;
+        background: #eef2ff;
+        border: 1px solid #c7d2fe;
+        border-radius: 8px;
+        padding: 8px;
+      }
+
+      .canvas-wrap {
+        max-width: 620px;
+      }
+
+      canvas {
+        width: 100%;
+        height: auto;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 90px;
+      }
+
+      .progress {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .goal {
+        font-weight: 700;
+      }
+
+      @media (max-width: 900px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel controls">
+        <h1>Code for Kids</h1>
+        <label>
+          Task
+          <select id="task-select"></select>
+        </label>
+
+        <div id="task-description" class="status"></div>
+
+        <label for="code">Python Code</label>
+        <textarea id="code"></textarea>
+
+        <div>
+          <button id="run">Run Code ▶</button>
+          <button id="reset" class="secondary">Reset Task</button>
+          <button id="save" class="secondary">Save Code</button>
+        </div>
+
+        <div class="status" id="engine-status">Loading Python engine...</div>
+        <div>
+          <strong>Progress</strong>
+          <ul id="progress" class="progress"></ul>
+        </div>
+      </section>
+
+      <section class="game-panel">
+        <div class="canvas-wrap"><canvas id="game" width="600" height="600"></canvas></div>
+        <p class="goal" id="goal"></p>
+        <h3>Output</h3>
+        <pre id="output"></pre>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+    <script>
+      const STORAGE_KEYS = {
+        progress: "code-for-kids-progress",
+        codePrefix: "code-for-kids-code-",
+      };
+
+      const tasks = [
+        {
+          id: "collect",
+          name: "Collect the Stars",
+          size: 10,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [
+            { x: 2, y: 0 },
+            { x: 4, y: 1 },
+            { x: 6, y: 3 },
+          ],
+          walls: [],
+          goalText: "Goal: collect all 3 stars.",
+          description:
+            "Use move_forward(steps), turn(degrees), and collect() to gather every star.",
+          starterCode: `# Try solving this task\nmove_forward(2)\ncollect()\nturn(90)\nmove_forward(1)\nturn(-90)\nmove_forward(2)\ncollect()\nturn(90)\nmove_forward(2)\nturn(-90)\nmove_forward(2)\ncollect()`
+        },
+        {
+          id: "maze",
+          name: "Maze Treasure",
+          size: 10,
+          start: { x: 0, y: 9, heading: 0 },
+          items: [{ x: 9, y: 0 }],
+          walls: [
+            [1, 8], [1, 7], [1, 6], [1, 5], [1, 4], [1, 3], [1, 2],
+            [2, 2], [3, 2], [4, 2], [5, 2],
+            [5, 3], [5, 4], [5, 5], [5, 6],
+            [3, 6], [4, 6],
+            [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6], [7, 7],
+            [2, 8], [3, 8], [4, 8],
+          ],
+          goalText: "Goal: navigate the maze and collect the treasure.",
+          description:
+            "Find a path to the treasure in the top-right corner.",
+          starterCode: `# Hint: try small steps and turns\nfor _ in range(9):\n    move_forward(1)`
+        },
+      ];
+
+      const state = {
+        taskId: tasks[0].id,
+        actor: null,
+        itemsLeft: [],
+        completed: loadProgress(),
+        pyodide: null,
+      };
+
+      const taskSelect = document.getElementById("task-select");
+      const codeEl = document.getElementById("code");
+      const outputEl = document.getElementById("output");
+      const goalEl = document.getElementById("goal");
+      const descEl = document.getElementById("task-description");
+      const progressEl = document.getElementById("progress");
+      const engineStatusEl = document.getElementById("engine-status");
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+
+      function currentTask() {
+        return tasks.find((t) => t.id === state.taskId);
+      }
+
+      function loadProgress() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEYS.progress) || "{}");
+        } catch {
+          return {};
+        }
+      }
+
+      function saveProgress() {
+        localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(state.completed));
+      }
+
+      function getStoredCode(taskId) {
+        return localStorage.getItem(`${STORAGE_KEYS.codePrefix}${taskId}`);
+      }
+
+      function saveCode() {
+        localStorage.setItem(`${STORAGE_KEYS.codePrefix}${state.taskId}`, codeEl.value);
+        print("Code saved locally.");
+      }
+
+      function print(message) {
+        outputEl.textContent = `${outputEl.textContent}${message}\n`;
+      }
+
+      function clearOutput() {
+        outputEl.textContent = "";
+      }
+
+      function isWall(task, x, y) {
+        return task.walls.some(([wx, wy]) => wx === x && wy === y);
+      }
+
+      function resetTask() {
+        const task = currentTask();
+        state.actor = { ...task.start };
+        state.itemsLeft = task.items.map((item) => ({ ...item }));
+        goalEl.textContent = task.goalText;
+        descEl.textContent = task.description;
+        draw();
+      }
+
+      function headingVector(heading) {
+        const normalized = ((heading % 360) + 360) % 360;
+        if (normalized === 0) return { dx: 1, dy: 0 };
+        if (normalized === 90) return { dx: 0, dy: -1 };
+        if (normalized === 180) return { dx: -1, dy: 0 };
+        if (normalized === 270) return { dx: 0, dy: 1 };
+        throw new Error("Heading must be in 90-degree turns.");
+      }
+
+      function moveForward(steps = 1) {
+        const task = currentTask();
+        for (let i = 0; i < steps; i += 1) {
+          const { dx, dy } = headingVector(state.actor.heading);
+          const nextX = state.actor.x + dx;
+          const nextY = state.actor.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) {
+            throw new Error("The actor cannot move outside the field.");
+          }
+          if (isWall(task, nextX, nextY)) {
+            throw new Error("Bump! A wall is blocking the way.");
+          }
+          state.actor.x = nextX;
+          state.actor.y = nextY;
+        }
+        draw();
+      }
+
+      function turn(degrees) {
+        if (degrees % 90 !== 0) {
+          throw new Error("Use turn with values like 90, -90, 180.");
+        }
+        state.actor.heading = (state.actor.heading + degrees + 360) % 360;
+        draw();
+      }
+
+      function collect() {
+        const index = state.itemsLeft.findIndex(
+          (item) => item.x === state.actor.x && item.y === state.actor.y
+        );
+        if (index === -1) {
+          throw new Error("No item to collect on this tile.");
+        }
+        state.itemsLeft.splice(index, 1);
+        draw();
+        if (state.itemsLeft.length === 0) {
+          const task = currentTask();
+          state.completed[task.id] = true;
+          saveProgress();
+          renderProgress();
+          print(`✅ Task complete: ${task.name}`);
+        }
+      }
+
+      function draw() {
+        const task = currentTask();
+        const tile = canvas.width / task.size;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (let y = 0; y < task.size; y += 1) {
+          for (let x = 0; x < task.size; x += 1) {
+            const isBlocked = isWall(task, x, y);
+            ctx.fillStyle = isBlocked ? "#111827" : "#f8fafc";
+            ctx.fillRect(x * tile, y * tile, tile, tile);
+            ctx.strokeStyle = "#d1d5db";
+            ctx.strokeRect(x * tile, y * tile, tile, tile);
+          }
+        }
+
+        for (const item of state.itemsLeft) {
+          ctx.font = `${Math.floor(tile * 0.45)}px sans-serif`;
+          ctx.fillText("⭐", item.x * tile + tile * 0.2, item.y * tile + tile * 0.68);
+        }
+
+        const cx = state.actor.x * tile + tile / 2;
+        const cy = state.actor.y * tile + tile / 2;
+        const angle = (state.actor.heading * Math.PI) / 180;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(-angle);
+        ctx.fillStyle = "#2563eb";
+        ctx.beginPath();
+        ctx.moveTo(tile * 0.3, 0);
+        ctx.lineTo(-tile * 0.2, -tile * 0.22);
+        ctx.lineTo(-tile * 0.2, tile * 0.22);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function renderProgress() {
+        progressEl.innerHTML = "";
+        for (const task of tasks) {
+          const li = document.createElement("li");
+          li.textContent = `${state.completed[task.id] ? "✅" : "⬜"} ${task.name}`;
+          progressEl.appendChild(li);
+        }
+      }
+
+      function loadTask(taskId) {
+        state.taskId = taskId;
+        const task = currentTask();
+        const stored = getStoredCode(task.id);
+        codeEl.value = stored || task.starterCode;
+        resetTask();
+      }
+
+      async function setupPython() {
+        state.pyodide = await loadPyodide();
+        state.pyodide.registerJsModule("kid_game", {
+          move_forward: moveForward,
+          turn,
+          collect,
+        });
+        engineStatusEl.textContent = "Python engine ready.";
+      }
+
+      async function runUserCode() {
+        if (!state.pyodide) {
+          print("Python is still loading.");
+          return;
+        }
+
+        clearOutput();
+        resetTask();
+        const script = `${codeEl.value}\n`;
+        const prelude = [
+          "from kid_game import move_forward, turn, collect",
+          "globals()['move_forward']=move_forward",
+          "globals()['turn']=turn",
+          "globals()['collect']=collect",
+        ].join("\n");
+
+        try {
+          await state.pyodide.runPythonAsync(`${prelude}\n${script}`);
+          if (state.itemsLeft.length > 0) {
+            print(`Items left: ${state.itemsLeft.length}`);
+          }
+        } catch (err) {
+          print(`❌ ${err.message || err}`);
+        }
+      }
+
+      function initTaskOptions() {
+        for (const task of tasks) {
+          const option = document.createElement("option");
+          option.value = task.id;
+          option.textContent = task.name;
+          taskSelect.appendChild(option);
+        }
+      }
+
+      initTaskOptions();
+      renderProgress();
+      loadTask(tasks[0].id);
+
+      taskSelect.addEventListener("change", () => loadTask(taskSelect.value));
+      document.getElementById("run").addEventListener("click", runUserCode);
+      document.getElementById("reset").addEventListener("click", () => {
+        resetTask();
+        clearOutput();
+      });
+      document.getElementById("save").addEventListener("click", saveCode);
+
+      setupPython().catch((err) => {
+        engineStatusEl.textContent = "Failed to load Python engine.";
+        print(`Failed to load Python: ${err.message || err}`);
+      });
+    </script>
+  </body>
+</html>
