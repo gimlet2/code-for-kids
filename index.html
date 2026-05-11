@@ -15,6 +15,7 @@
     <style>
       :root {
         font-family: Arial, sans-serif;
+        --editor-min-height: 380px;
       }
 
       body {
@@ -47,7 +48,7 @@
 
       textarea {
         width: 100%;
-        min-height: 380px;
+        min-height: var(--editor-min-height);
         resize: vertical;
         border: 1px solid #d1d5db;
         border-radius: 8px;
@@ -60,13 +61,13 @@
       .CodeMirror {
         border: 1px solid #d1d5db;
         border-radius: 8px;
-        min-height: 380px;
+        min-height: var(--editor-min-height);
         height: auto;
         font-size: 14px;
       }
 
       .CodeMirror-scroll {
-        min-height: 380px;
+        min-height: var(--editor-min-height);
       }
 
       select,
