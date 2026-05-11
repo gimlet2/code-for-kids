@@ -189,11 +189,10 @@
       const ACTOR_BASE_X = 0.2;
       const ACTOR_BASE_Y = 0.22;
       const TURN_TOLERANCE = 1e-10;
-      const AUTOCOMPLETE_TRIGGER = /^[A-Za-z_]$/;
+      const AUTOCOMPLETE_TRIGGER = /^[A-Za-z_.]$/;
+      const ROBOT_METHODS = ["move", "turn", "collect", "can_move", "what_under"];
       const EDITOR_COMPLETIONS = [
-        "move_forward",
-        "turn",
-        "collect",
+        "robot",
         "for",
         "while",
         "if",
@@ -209,8 +208,22 @@
 
       const tasks = [
         {
+          id: "hello",
+          name: "Hello, Robot!",
+          size: 5,
+          start: { x: 0, y: 2, heading: 0 },
+          items: [{ x: 3, y: 2 }],
+          walls: [],
+          goalText: "Goal: move the robot forward and collect the star.",
+          description:
+            "This is your robot. Tell it what to do! Use robot.move(steps) to move forward and robot.collect() to pick up a star.",
+          starterCode: `# Move forward and collect the star
+robot.move(3)
+robot.collect()`,
+        },
+        {
           id: "collect",
-          name: "Collect the Stars",
+          name: "Turn and Collect",
           size: 10,
           start: { x: 0, y: 0, heading: 0 },
           items: [
@@ -221,24 +234,45 @@
           walls: [],
           goalText: "Goal: collect all 3 stars.",
           description:
-            "Use move_forward(steps), turn(degrees), and collect() to gather every star.",
-          starterCode: `# Try solving this task
-move_forward(2)
-collect()
-turn(90)
-move_forward(1)
-turn(-90)
-move_forward(2)
-collect()
-turn(90)
-move_forward(2)
-turn(-90)
-move_forward(2)
-collect()`
+            "Use robot.move(steps), robot.turn(degrees), and robot.collect() to gather every star. Tip: turn(-90) faces south, turn(90) faces north.",
+          starterCode: `# Collect all 3 stars
+robot.move(2)
+robot.collect()
+robot.turn(-90)
+robot.move(1)
+robot.turn(90)
+robot.move(2)
+robot.collect()
+robot.turn(-90)
+robot.move(2)
+robot.turn(90)
+robot.move(2)
+robot.collect()`,
+        },
+        {
+          id: "loop",
+          name: "Do it Again",
+          size: 8,
+          start: { x: 0, y: 1, heading: 0 },
+          items: [
+            { x: 1, y: 1 },
+            { x: 2, y: 1 },
+            { x: 3, y: 1 },
+            { x: 4, y: 1 },
+            { x: 5, y: 1 },
+          ],
+          walls: [],
+          goalText: "Goal: collect all 5 stars in a row.",
+          description:
+            "Instead of repeating robot.move() five times, use a for loop: for _ in range(5):",
+          starterCode: `# Collect the row of stars using a loop
+for _ in range(5):
+    robot.move(1)
+    robot.collect()`,
         },
         {
           id: "maze",
-          name: "Maze Treasure",
+          name: "The Maze",
           size: 10,
           start: { x: 0, y: 9, heading: 0 },
           items: [{ x: 9, y: 0 }],
@@ -252,10 +286,48 @@ collect()`
           ],
           goalText: "Goal: navigate the maze and collect the treasure.",
           description:
-            "Find a path to the treasure in the top-right corner.",
+            "Find a path through the maze to the treasure in the top-right corner. Plan your route step by step!",
           starterCode: `# Hint: try small steps and turns
 for _ in range(9):
-    move_forward(1)`
+    robot.move(1)`,
+        },
+        {
+          id: "sensor",
+          name: "Look Before You Move",
+          size: 9,
+          start: { x: 0, y: 1, heading: 0 },
+          items: [{ x: 6, y: 1 }],
+          walls: [[7, 1]],
+          goalText: "Goal: reach the star without hitting the wall.",
+          description:
+            "Use robot.can_move() to check if the path ahead is clear. It returns True if you can move forward, False if there is a wall.",
+          starterCode: `# Move until the wall blocks the way, then collect
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "trick",
+          name: "Teach the Robot a Trick",
+          size: 8,
+          start: { x: 0, y: 1, heading: 0 },
+          items: [
+            { x: 2, y: 1 },
+            { x: 4, y: 1 },
+            { x: 6, y: 1 },
+          ],
+          walls: [],
+          goalText: "Goal: collect only the stars, skip the empty tiles.",
+          description:
+            "Use robot.what_under() to check what is on the current tile. It returns 'star' if there is a star, or None if the tile is empty.",
+          starterCode: `# Define a helper function, then use it in a loop
+def grab_if_star():
+    # Add your code: collect if what_under() returns 'star'
+    pass
+
+for _ in range(7):
+    robot.move(1)
+    grab_if_star()`,
         },
       ];
 
@@ -366,6 +438,48 @@ for _ in range(9):
           Math.abs(remainder) <= TURN_TOLERANCE ||
           Math.abs(Math.abs(remainder) - 90) <= TURN_TOLERANCE
         );
+      }
+
+      function canMove() {
+        const task = currentTask();
+        try {
+          const { dx, dy } = headingVector(state.actor.heading);
+          const nextX = state.actor.x + dx;
+          const nextY = state.actor.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) return false;
+          if (isWall(task, nextX, nextY)) return false;
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function whatUnder() {
+        const item = state.itemsLeft.find(
+          (i) => i.x === state.actor.x && i.y === state.actor.y
+        );
+        return item ? "star" : null;
+      }
+
+      function plannedCanMove() {
+        const task = currentTask();
+        try {
+          const { dx, dy } = headingVector(state.plannedActor.heading);
+          const nextX = state.plannedActor.x + dx;
+          const nextY = state.plannedActor.y + dy;
+          if (nextX < 0 || nextY < 0 || nextX >= task.size || nextY >= task.size) return false;
+          if (isWall(task, nextX, nextY)) return false;
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      function plannedWhatUnder() {
+        const item = state.plannedItemsLeft.find(
+          (i) => i.x === state.plannedActor.x && i.y === state.plannedActor.y
+        );
+        return item ? "star" : null;
       }
 
       function moveForward(steps = 1) {
@@ -554,14 +668,31 @@ for _ in range(9):
 
       function configurePythonApi(stepByStep) {
         state.pyodide.registerJsModule("kid_game", {
-          move_forward: stepByStep ? queueMoveForward : moveForward,
-          turn: stepByStep ? queueTurn : turn,
-          collect: stepByStep ? queueCollect : collect,
+          _move: stepByStep ? queueMoveForward : moveForward,
+          _turn: stepByStep ? queueTurn : turn,
+          _collect: stepByStep ? queueCollect : collect,
+          _can_move: stepByStep ? plannedCanMove : canMove,
+          _what_under: stepByStep ? plannedWhatUnder : whatUnder,
         });
       }
 
       function pythonHint(cm) {
         const cursor = cm.getCursor();
+        const line = cm.getLine(cursor.line);
+        const before = line.slice(0, cursor.ch);
+
+        const robotDotMatch = before.match(/robot\.(\w*)$/);
+        if (robotDotMatch) {
+          const typed = robotDotMatch[1];
+          const methods = ROBOT_METHODS.filter((m) => m.startsWith(typed));
+          const list = (methods.length > 0 ? methods : ROBOT_METHODS).map((m) => `robot.${m}`);
+          return {
+            list,
+            from: CodeMirror.Pos(cursor.line, cursor.ch - typed.length - "robot.".length),
+            to: CodeMirror.Pos(cursor.line, cursor.ch),
+          };
+        }
+
         const token = cm.getTokenAt(cursor);
         const tokenStart = token.start;
         const tokenEnd = cursor.ch;
@@ -616,11 +747,23 @@ for _ in range(9):
           clearOutput();
           resetTask();
           const userScript = `${getCodeValue()}\n`;
-          const prelude = [
-            "from kid_game import move_forward, turn, collect",
-            "for name in ('move_forward', 'turn', 'collect'):",
-            "    globals()[name] = locals()[name]",
-          ].join("\n");
+          const prelude = `from kid_game import _move, _turn, _collect, _can_move, _what_under
+
+class Robot:
+    def move(self, steps=1):
+        _move(steps)
+    def turn(self, degrees):
+        _turn(degrees)
+    def collect(self):
+        _collect()
+    def can_move(self):
+        return bool(_can_move())
+    def what_under(self):
+        v = _what_under()
+        return None if v is None else str(v)
+
+robot = Robot()
+`;
           let executionError = null;
 
           configurePythonApi(stepByStep);
