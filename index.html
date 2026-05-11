@@ -189,7 +189,7 @@
       const ACTOR_BASE_X = 0.2;
       const ACTOR_BASE_Y = 0.22;
       const TURN_TOLERANCE = 1e-10;
-      const AUTOCOMPLETE_TRIGGER = /^[A-Za-z_.]$/;
+      const AUTOCOMPLETE_TRIGGER = /^[A-Za-z_\.]$/;
       const ROBOT_METHODS = ["move", "turn", "collect", "can_move", "what_under"];
       const EDITOR_COMPLETIONS = [
         "robot",
@@ -322,7 +322,7 @@ robot.collect()`,
             "Use robot.what_under() to check what is on the current tile. It returns 'star' if there is a star, or None if the tile is empty.",
           starterCode: `# Define a helper function, then use it in a loop
 def grab_if_star():
-    # Add your code: collect if what_under() returns 'star'
+    # Add your code: collect if robot.what_under() returns 'star'
     pass
 
 for _ in range(7):
@@ -757,10 +757,9 @@ class Robot:
     def collect(self):
         _collect()
     def can_move(self):
-        return bool(_can_move())
+        return _can_move()
     def what_under(self):
-        v = _what_under()
-        return None if v is None else str(v)
+        return _what_under()
 
 robot = Robot()
 `;
