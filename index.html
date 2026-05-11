@@ -145,15 +145,21 @@
   <body>
     <main class="layout">
       <section class="panel controls">
-        <h1>Code for Kids</h1>
-        <label>
-          Task
+        <h1 id="app-title">Code for Kids</h1>
+        <label id="lang-label"><span>Language</span>
+          <select id="lang-select">
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+            <option value="ru">Русский</option>
+          </select>
+        </label>
+        <label id="task-label"><span>Task</span>
           <select id="task-select"></select>
         </label>
 
         <div id="task-description" class="status"></div>
 
-        <label for="code">Python Code</label>
+        <label id="code-label" for="code"><span>Python Code</span></label>
         <textarea id="code"></textarea>
 
         <div class="button-row">
@@ -165,7 +171,7 @@
 
         <div class="status" id="engine-status">Loading Python engine...</div>
         <div>
-          <strong>Progress</strong>
+          <strong id="progress-header">Progress</strong>
           <ul id="progress" class="progress"></ul>
         </div>
       </section>
@@ -173,7 +179,7 @@
       <section class="game-panel">
         <div class="canvas-wrap"><canvas id="game" width="600" height="600"></canvas></div>
         <p class="goal" id="goal"></p>
-        <h3>Output</h3>
+        <h3 id="output-header">Output</h3>
         <pre id="output"></pre>
       </section>
     </main>
@@ -199,49 +205,347 @@
       const AUTOCOMPLETE_TRIGGER = /^[A-Za-z_\.]$/;
       const ROBOT_METHODS = ["move", "turn", "collect", "can_move", "what_under"];
       const EDITOR_COMPLETIONS = [
-        "robot",
-        "for",
-        "while",
-        "if",
-        "elif",
-        "else",
-        "in",
-        "range",
-        "def",
-        "print",
-        "True",
-        "False",
+        "robot", "for", "while", "if", "elif", "else",
+        "in", "range", "def", "print", "True", "False",
       ];
 
+      const UI_TEXT = {
+        en: {
+          title: "Code for Kids",
+          langLabel: "Language",
+          taskLabel: "Task",
+          codeLabel: "Python Code",
+          runBtn: "Run Code ▶",
+          stepBtn: "Run Step-by-Step ⏱️",
+          resetBtn: "Reset Task",
+          saveBtn: "Save Code",
+          outputHeader: "Output",
+          progressHeader: "Progress",
+          engineLoading: "Loading Python engine...",
+          engineReady: "Python engine ready.",
+          engineFailed: "Failed to load Python engine.",
+          itemsLeft: (n) => `Items left: ${n}`,
+          taskComplete: (name) => `✅ Task complete: ${name}`,
+          saved: "Code saved locally.",
+          running: "Execution is already in progress.",
+          pyLoading: "Python is still loading.",
+        },
+        de: {
+          title: "Code für Kinder",
+          langLabel: "Sprache",
+          taskLabel: "Aufgabe",
+          codeLabel: "Python-Code",
+          runBtn: "Code ausführen ▶",
+          stepBtn: "Schritt für Schritt ⏱️",
+          resetBtn: "Aufgabe zurücksetzen",
+          saveBtn: "Code speichern",
+          outputHeader: "Ausgabe",
+          progressHeader: "Fortschritt",
+          engineLoading: "Python-Engine wird geladen...",
+          engineReady: "Python-Engine bereit.",
+          engineFailed: "Python-Engine konnte nicht geladen werden.",
+          itemsLeft: (n) => `Verbleibende Objekte: ${n}`,
+          taskComplete: (name) => `✅ Aufgabe erfüllt: ${name}`,
+          saved: "Code lokal gespeichert.",
+          running: "Ausführung läuft bereits.",
+          pyLoading: "Python wird noch geladen.",
+        },
+        ru: {
+          title: "Программирование для детей",
+          langLabel: "Язык",
+          taskLabel: "Задание",
+          codeLabel: "Код Python",
+          runBtn: "Запустить ▶",
+          stepBtn: "Пошагово ⏱️",
+          resetBtn: "Сбросить задание",
+          saveBtn: "Сохранить код",
+          outputHeader: "Вывод",
+          progressHeader: "Прогресс",
+          engineLoading: "Загрузка Python...",
+          engineReady: "Python готов.",
+          engineFailed: "Не удалось загрузить Python.",
+          itemsLeft: (n) => `Осталось объектов: ${n}`,
+          taskComplete: (name) => `✅ Задание выполнено: ${name}`,
+          saved: "Код сохранён локально.",
+          running: "Выполнение уже идёт.",
+          pyLoading: "Python ещё загружается.",
+        },
+      };
+
+      // ── helper: translate a {en,de,ru} object or pass-through a plain string ──
+      function t(obj) {
+        if (typeof obj === "string") return obj;
+        return obj[state.lang] || obj["en"] || "";
+      }
+
       const tasks = [
+        // ── MOVE: 1 demo + 10 practice ──────────────────────────────────────────
         {
           id: "hello",
-          name: "Hello, Robot!",
+          name: {
+            en: "Hello, Robot! (Demo)",
+            de: "Hallo, Roboter! (Demo)",
+            ru: "Привет, Робот! (Демо)",
+          },
           size: 5,
           start: { x: 0, y: 2, heading: 0 },
           items: [{ x: 3, y: 2 }],
           walls: [],
-          goalText: "Goal: move the robot forward and collect the star.",
-          description:
-            "This is your robot. Tell it what to do! Use robot.move(steps) to move forward and robot.collect() to pick up a star.",
+          goalText: {
+            en: "Goal: move the robot forward and collect the star.",
+            de: "Ziel: Bewege den Roboter vorwärts und sammle den Stern.",
+            ru: "Цель: переместите робота вперёд и соберите звезду.",
+          },
+          description: {
+            en: "This is your robot. Tell it what to do! Use robot.move(steps) to move forward and robot.collect() to pick up a star.",
+            de: "Das ist dein Roboter. Sag ihm, was er tun soll! Benutze robot.move(schritte) zum Vorwärtsbewegen und robot.collect() zum Aufheben eines Sterns.",
+            ru: "Это твой робот. Скажи ему, что делать! Используй robot.move(шаги) для движения вперёд и robot.collect() для сбора звезды.",
+          },
           starterCode: `# Move forward and collect the star
 robot.move(3)
 robot.collect()`,
         },
         {
+          id: "move-1",
+          name: { en: "Short Hop", de: "Kleiner Sprung", ru: "Маленький прыжок" },
+          size: 5,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 2, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move to the star and collect it.",
+            de: "Ziel: Bewege dich zum Stern und sammle ihn.",
+            ru: "Цель: доберись до звезды и собери её.",
+          },
+          description: {
+            en: "Use robot.move(steps) and robot.collect(). Count the tiles between the robot and the star.",
+            de: "Benutze robot.move(schritte) und robot.collect(). Zähle die Felder zwischen Roboter und Stern.",
+            ru: "Используй robot.move(шаги) и robot.collect(). Посчитай клетки между роботом и звездой.",
+          },
+          starterCode: `# How many steps to the star?
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-2",
+          name: { en: "Long Stretch", de: "Lange Strecke", ru: "Длинный путь" },
+          size: 7,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [{ x: 6, y: 3 }],
+          walls: [],
+          goalText: {
+            en: "Goal: cross the field and collect the star.",
+            de: "Ziel: Überquere das Feld und sammle den Stern.",
+            ru: "Цель: пересеки поле и собери звезду.",
+          },
+          description: {
+            en: "Count the tiles to figure out how many steps the robot needs.",
+            de: "Zähle die Felder, um herauszufinden, wie viele Schritte der Roboter braucht.",
+            ru: "Посчитай клетки, чтобы понять, сколько шагов нужно роботу.",
+          },
+          starterCode: `# Count the tiles between robot and star
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-3",
+          name: { en: "Two Stars", de: "Zwei Sterne", ru: "Две звезды" },
+          size: 6,
+          start: { x: 0, y: 2, heading: 0 },
+          items: [{ x: 2, y: 2 }, { x: 4, y: 2 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect both stars in a row.",
+            de: "Ziel: Sammle beide Sterne nacheinander.",
+            ru: "Цель: собери обе звезды подряд.",
+          },
+          description: {
+            en: "Move to each star and collect it. Use robot.move() and robot.collect() twice.",
+            de: "Bewege dich zu jedem Stern und sammle ihn ein. Benutze robot.move() und robot.collect() zweimal.",
+            ru: "Двигайся к каждой звезде и собирай её. Используй robot.move() и robot.collect() дважды.",
+          },
+          starterCode: `# Collect the first star, then the second
+robot.move(2)
+robot.collect()
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-4",
+          name: { en: "Go North", de: "Nach Norden", ru: "На север" },
+          size: 8,
+          start: { x: 2, y: 7, heading: 90 },
+          items: [{ x: 2, y: 1 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move north and collect the star.",
+            de: "Ziel: Fahre nach Norden und sammle den Stern.",
+            ru: "Цель: двигайся на север и собери звезду.",
+          },
+          description: {
+            en: "The robot already faces north (heading 90). Just move forward the right number of steps.",
+            de: "Der Roboter schaut bereits nach Norden (Richtung 90). Bewege dich einfach die richtige Anzahl Schritte vorwärts.",
+            ru: "Робот уже смотрит на север (направление 90). Просто двигайся вперёд нужное количество шагов.",
+          },
+          starterCode: `# The robot faces north — move forward!
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-5",
+          name: { en: "Go West", de: "Nach Westen", ru: "На запад" },
+          size: 5,
+          start: { x: 4, y: 2, heading: 180 },
+          items: [{ x: 1, y: 2 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move west and collect the star.",
+            de: "Ziel: Fahre nach Westen und sammle den Stern.",
+            ru: "Цель: двигайся на запад и собери звезду.",
+          },
+          description: {
+            en: "The robot faces west (heading 180). Moving forward goes left on the grid.",
+            de: "Der Roboter schaut nach Westen (Richtung 180). Vorwärtsbewegen führt nach links auf dem Feld.",
+            ru: "Робот смотрит на запад (направление 180). Движение вперёд ведёт влево по полю.",
+          },
+          starterCode: `# The robot faces west — how far to the star?
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-6",
+          name: { en: "Go South", de: "Nach Süden", ru: "На юг" },
+          size: 6,
+          start: { x: 0, y: 0, heading: 270 },
+          items: [{ x: 0, y: 5 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move south and collect the star.",
+            de: "Ziel: Fahre nach Süden und sammle den Stern.",
+            ru: "Цель: двигайся на юг и собери звезду.",
+          },
+          description: {
+            en: "The robot faces south (heading 270). Moving forward takes it downward.",
+            de: "Der Roboter schaut nach Süden (Richtung 270). Vorwärtsbewegen führt ihn nach unten.",
+            ru: "Робот смотрит на юг (направление 270). Движение вперёд ведёт вниз.",
+          },
+          starterCode: `# The robot faces south — move forward!
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-7",
+          name: { en: "Two Stops North", de: "Zwei Stopps nordwärts", ru: "Две остановки на север" },
+          size: 8,
+          start: { x: 0, y: 7, heading: 90 },
+          items: [{ x: 0, y: 4 }, { x: 0, y: 1 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect both stars going north.",
+            de: "Ziel: Sammle beide Sterne auf dem Weg nach Norden.",
+            ru: "Цель: собери обе звезды, двигаясь на север.",
+          },
+          description: {
+            en: "The robot faces north. Move and collect the first star, then continue to the second.",
+            de: "Der Roboter schaut nach Norden. Bewege dich zum ersten Stern, dann weiter zum zweiten.",
+            ru: "Робот смотрит на север. Двигайся к первой звезде, затем продолжай ко второй.",
+          },
+          starterCode: `# Collect both stars going north
+robot.move(3)
+robot.collect()
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-8",
+          name: { en: "Back to Start", de: "Zurück zum Start", ru: "Назад к началу" },
+          size: 7,
+          start: { x: 6, y: 3, heading: 180 },
+          items: [{ x: 0, y: 3 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move all the way west and collect the star.",
+            de: "Ziel: Fahre ganz nach Westen und sammle den Stern.",
+            ru: "Цель: пройди весь путь на запад и собери звезду.",
+          },
+          description: {
+            en: "The robot starts on the right side facing west. Move it all the way across.",
+            de: "Der Roboter startet rechts und schaut nach Westen. Fahre ihn quer über das gesamte Feld.",
+            ru: "Робот начинает справа, смотрит на запад. Проведи его через всё поле.",
+          },
+          starterCode: `# Move west all the way across
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-9",
+          name: { en: "Three Stars", de: "Drei Sterne", ru: "Три звезды" },
+          size: 9,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 2, y: 4 }, { x: 5, y: 4 }, { x: 8, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 3 stars spread across the row.",
+            de: "Ziel: Sammle alle 3 Sterne, die über die Reihe verteilt sind.",
+            ru: "Цель: собери все 3 звезды, разбросанные по ряду.",
+          },
+          description: {
+            en: "Three stars wait at different positions. Move to each one and collect it.",
+            de: "Drei Sterne warten an verschiedenen Positionen. Fahre zu jedem und sammle ihn ein.",
+            ru: "Три звезды ждут на разных позициях. Двигайся к каждой и собирай.",
+          },
+          starterCode: `# Collect all 3 stars — watch the gaps!
+robot.move(2)
+robot.collect()
+robot.move(___)
+robot.collect()
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "move-10",
+          name: { en: "Full Speed West", de: "Volle Fahrt westwärts", ru: "Полный ход на запад" },
+          size: 9,
+          start: { x: 8, y: 4, heading: 180 },
+          items: [{ x: 0, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: travel the full width of the grid and collect the star.",
+            de: "Ziel: Durchquere die gesamte Breite des Feldes und sammle den Stern.",
+            ru: "Цель: пройди всю ширину поля и собери звезду.",
+          },
+          description: {
+            en: "The robot is at the far right, facing west. How many steps to the star?",
+            de: "Der Roboter steht ganz rechts und schaut nach Westen. Wie viele Schritte bis zum Stern?",
+            ru: "Робот находится крайне справа и смотрит на запад. Сколько шагов до звезды?",
+          },
+          starterCode: `# How many steps to cross the whole grid?
+robot.move(___)
+robot.collect()`,
+        },
+
+        // ── TURN: 1 demo + 10 practice ──────────────────────────────────────────
+        {
           id: "collect",
-          name: "Turn and Collect",
+          name: {
+            en: "Turn and Collect (Demo)",
+            de: "Drehen und Sammeln (Demo)",
+            ru: "Поворот и сбор (Демо)",
+          },
           size: 10,
           start: { x: 0, y: 0, heading: 0 },
-          items: [
-            { x: 2, y: 0 },
-            { x: 4, y: 1 },
-            { x: 6, y: 3 },
-          ],
+          items: [{ x: 2, y: 0 }, { x: 4, y: 1 }, { x: 6, y: 3 }],
           walls: [],
-          goalText: "Goal: collect all 3 stars.",
-          description:
-            "Use robot.move(steps), robot.turn(degrees), and robot.collect() to gather every star. Tip: turn(-90) faces south, turn(90) faces north.",
+          goalText: {
+            en: "Goal: collect all 3 stars.",
+            de: "Ziel: Sammle alle 3 Sterne.",
+            ru: "Цель: собери все 3 звезды.",
+          },
+          description: {
+            en: "Use robot.move(steps), robot.turn(degrees), and robot.collect() to gather every star. Tip: turn(-90) faces south, turn(90) faces north.",
+            de: "Benutze robot.move(schritte), robot.turn(grad) und robot.collect(). Tipp: turn(-90) zeigt nach Süden, turn(90) nach Norden.",
+            ru: "Используй robot.move(шаги), robot.turn(градусы) и robot.collect(). Подсказка: turn(-90) — юг, turn(90) — север.",
+          },
           starterCode: `# Collect all 3 stars
 robot.move(2)
 robot.collect()
@@ -257,29 +561,533 @@ robot.move(2)
 robot.collect()`,
         },
         {
+          id: "turn-1",
+          name: { en: "L-Turn", de: "L-Kurve", ru: "Поворот «Г»" },
+          size: 6,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [{ x: 3, y: 3 }, { x: 3, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect both stars by making a 90° turn.",
+            de: "Ziel: Sammle beide Sterne mit einer 90°-Drehung.",
+            ru: "Цель: собери обе звезды, сделав поворот на 90°.",
+          },
+          description: {
+            en: "Move east to the first star, then turn north and reach the second.",
+            de: "Fahre nach Osten zum ersten Stern, drehe dann nach Norden zum zweiten.",
+            ru: "Двигайся на восток к первой звезде, затем повернись на север ко второй.",
+          },
+          starterCode: `# Move east, collect, turn north, collect
+robot.move(3)
+robot.collect()
+robot.turn(___)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-2",
+          name: { en: "South Turn", de: "Südkurve", ru: "Поворот на юг" },
+          size: 7,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 4, y: 0 }, { x: 4, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect both stars — one east, one south.",
+            de: "Ziel: Sammle beide Sterne — einen östlich, einen südlich.",
+            ru: "Цель: собери обе звезды — одну на востоке, одну на юге.",
+          },
+          description: {
+            en: "Move east to the first star, then turn south with turn(-90) and reach the second.",
+            de: "Fahre nach Osten zum ersten Stern, drehe dann südwärts mit turn(-90) zum zweiten.",
+            ru: "Двигайся на восток к первой звезде, затем поверни на юг с turn(-90) ко второй.",
+          },
+          starterCode: `# East to first star, then south
+robot.move(___)
+robot.collect()
+robot.turn(-90)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-3",
+          name: { en: "Zigzag Stars", de: "Zickzack-Sterne", ru: "Звёзды зигзагом" },
+          size: 8,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 3, y: 4 }, { x: 3, y: 0 }, { x: 6, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 3 stars using turns.",
+            de: "Ziel: Sammle alle 3 Sterne mithilfe von Drehungen.",
+            ru: "Цель: собери все 3 звезды, используя повороты.",
+          },
+          description: {
+            en: "You need to turn north and then east to reach all three stars.",
+            de: "Du musst nach Norden und dann nach Osten drehen, um alle drei Sterne zu erreichen.",
+            ru: "Тебе нужно повернуть на север, а затем на восток, чтобы достичь всех трёх звёзд.",
+          },
+          starterCode: `# East, collect. North, collect. East, collect.
+robot.move(3)
+robot.collect()
+robot.turn(90)
+robot.move(___)
+robot.collect()
+robot.turn(-90)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-4",
+          name: { en: "Facing West", de: "Blickrichtung Westen", ru: "Лицом на запад" },
+          size: 6,
+          start: { x: 5, y: 2, heading: 180 },
+          items: [{ x: 2, y: 2 }, { x: 0, y: 2 }],
+          walls: [],
+          goalText: {
+            en: "Goal: move west and collect both stars.",
+            de: "Ziel: Fahre nach Westen und sammle beide Sterne.",
+            ru: "Цель: двигайся на запад и собери обе звезды.",
+          },
+          description: {
+            en: "The robot already faces west (heading 180). Move forward to collect each star.",
+            de: "Der Roboter zeigt bereits nach Westen (Richtung 180). Fahre vorwärts zum ersten und zweiten Stern.",
+            ru: "Робот уже смотрит на запад (направление 180). Двигайся вперёд, собирая каждую звезду.",
+          },
+          starterCode: `# Facing west — move and collect!
+robot.move(___)
+robot.collect()
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-5",
+          name: { en: "Turn First", de: "Zuerst drehen", ru: "Сначала поворот" },
+          size: 7,
+          start: { x: 0, y: 6, heading: 0 },
+          items: [{ x: 0, y: 3 }, { x: 5, y: 3 }],
+          walls: [],
+          goalText: {
+            en: "Goal: turn north first, then east to get both stars.",
+            de: "Ziel: Drehe zuerst nach Norden, dann nach Osten, um beide Sterne zu bekommen.",
+            ru: "Цель: сначала повернись на север, затем на восток, чтобы взять обе звезды.",
+          },
+          description: {
+            en: "The first star is directly north. After collecting it, turn east to reach the second.",
+            de: "Der erste Stern liegt direkt nördlich. Nach dem Einsammeln drehe nach Osten zum zweiten.",
+            ru: "Первая звезда прямо на севере. После сбора повернись на восток ко второй.",
+          },
+          starterCode: `# Turn north first, collect, then go east
+robot.turn(90)
+robot.move(___)
+robot.collect()
+robot.turn(___)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-6",
+          name: { en: "S-Path", de: "S-Pfad", ru: "S-путь" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 2, y: 0 }, { x: 2, y: 3 }, { x: 6, y: 3 }, { x: 6, y: 6 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 4 stars on an S-shaped path.",
+            de: "Ziel: Sammle alle 4 Sterne auf einem S-förmigen Weg.",
+            ru: "Цель: собери все 4 звезды по S-образному маршруту.",
+          },
+          description: {
+            en: "Plan the turns carefully: east → south → east → south.",
+            de: "Plane die Drehungen sorgfältig: Ost → Süd → Ost → Süd.",
+            ru: "Тщательно планируй повороты: восток → юг → восток → юг.",
+          },
+          starterCode: `# Follow the S-path: east, south, east, south
+robot.move(2)
+robot.collect()
+robot.turn(-90)
+robot.move(3)
+robot.collect()
+robot.turn(___)
+robot.move(___)
+robot.collect()
+robot.turn(___)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-7",
+          name: { en: "Three Corners", de: "Drei Ecken", ru: "Три угла" },
+          size: 9,
+          start: { x: 0, y: 8, heading: 0 },
+          items: [{ x: 8, y: 8 }, { x: 8, y: 0 }, { x: 0, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars at three corners of the grid.",
+            de: "Ziel: Sammle 3 Sterne an drei Ecken des Feldes.",
+            ru: "Цель: собери 3 звезды в трёх углах поля.",
+          },
+          description: {
+            en: "Move east, then north, then west — a star waits at each corner.",
+            de: "Fahre nach Osten, dann Norden, dann Westen — an jeder Ecke wartet ein Stern.",
+            ru: "Двигайся на восток, затем север, затем запад — в каждом углу звезда.",
+          },
+          starterCode: `# Three corners: east, north, west
+robot.move(8)
+robot.collect()
+robot.turn(90)
+robot.move(___)
+robot.collect()
+robot.turn(90)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-8",
+          name: { en: "Start North", de: "Start nach Norden", ru: "Старт лицом на север" },
+          size: 7,
+          start: { x: 3, y: 6, heading: 90 },
+          items: [{ x: 3, y: 2 }, { x: 0, y: 2 }],
+          walls: [],
+          goalText: {
+            en: "Goal: go north then west to collect both stars.",
+            de: "Ziel: Fahre nach Norden dann nach Westen, um beide Sterne zu sammeln.",
+            ru: "Цель: иди на север, затем на запад, чтобы собрать обе звезды.",
+          },
+          description: {
+            en: "The robot faces north. Move to the first star, turn west, then reach the second.",
+            de: "Der Roboter schaut nach Norden. Zum ersten Stern, nach Westen drehen, zweiten sammeln.",
+            ru: "Робот смотрит на север. К первой звезде, повернись на запад, затем ко второй.",
+          },
+          starterCode: `# North first, then turn west
+robot.move(___)
+robot.collect()
+robot.turn(90)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-9",
+          name: { en: "Triangle Path", de: "Dreieckspfad", ru: "Треугольный путь" },
+          size: 8,
+          start: { x: 1, y: 7, heading: 90 },
+          items: [{ x: 1, y: 3 }, { x: 4, y: 3 }, { x: 4, y: 7 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 3 stars in a triangle pattern.",
+            de: "Ziel: Sammle alle 3 Sterne in einem Dreiecksmuster.",
+            ru: "Цель: собери все 3 звезды по треугольному маршруту.",
+          },
+          description: {
+            en: "Go north, then east, then south to form a triangle.",
+            de: "Fahre nach Norden, dann Osten, dann Süden — ein Dreieck.",
+            ru: "Иди на север, затем на восток, затем на юг — образуй треугольник.",
+          },
+          starterCode: `# North, east, south — a triangle!
+robot.move(4)
+robot.collect()
+robot.turn(-90)
+robot.move(___)
+robot.collect()
+robot.turn(-90)
+robot.move(___)
+robot.collect()`,
+        },
+        {
+          id: "turn-10",
+          name: { en: "Star Slalom", de: "Stern-Slalom", ru: "Звёздный слалом" },
+          size: 10,
+          start: { x: 0, y: 5, heading: 0 },
+          items: [
+            { x: 2, y: 5 }, { x: 2, y: 2 }, { x: 6, y: 2 }, { x: 6, y: 8 }, { x: 9, y: 8 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 5 stars on a winding path.",
+            de: "Ziel: Sammle alle 5 Sterne auf einem gewundenen Pfad.",
+            ru: "Цель: собери все 5 звёзд по извилистому маршруту.",
+          },
+          description: {
+            en: "Plan the full route carefully — you will need to turn multiple times.",
+            de: "Plane die gesamte Route sorgfältig — du musst mehrmals drehen.",
+            ru: "Тщательно планируй весь маршрут — понадобится несколько поворотов.",
+          },
+          starterCode: `# Plan each move and turn carefully
+robot.move(2)
+robot.collect()
+robot.turn(90)
+robot.move(3)
+robot.collect()
+# Keep going...`,
+        },
+
+        // ── LOOP: 1 demo + 10 practice ──────────────────────────────────────────
+        {
           id: "loop",
-          name: "Do it Again",
+          name: {
+            en: "Do it Again (Demo)",
+            de: "Wiederholen (Demo)",
+            ru: "Повтори снова (Демо)",
+          },
           size: 8,
           start: { x: 0, y: 1, heading: 0 },
           items: [
-            { x: 1, y: 1 },
-            { x: 2, y: 1 },
-            { x: 3, y: 1 },
-            { x: 4, y: 1 },
-            { x: 5, y: 1 },
+            { x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }, { x: 4, y: 1 }, { x: 5, y: 1 },
           ],
           walls: [],
-          goalText: "Goal: collect all 5 stars in a row.",
-          description:
-            "Instead of repeating robot.move() five times, use a for loop: for _ in range(5):",
+          goalText: {
+            en: "Goal: collect all 5 stars in a row.",
+            de: "Ziel: Sammle alle 5 Sterne in einer Reihe.",
+            ru: "Цель: собери все 5 звёзд подряд.",
+          },
+          description: {
+            en: "Instead of repeating robot.move() five times, use a for loop: for _ in range(5):",
+            de: "Statt robot.move() fünfmal zu wiederholen, verwende eine for-Schleife: for _ in range(5):",
+            ru: "Вместо того чтобы повторять robot.move() пять раз, используй цикл for: for _ in range(5):",
+          },
           starterCode: `# Collect the row of stars using a loop
 for _ in range(5):
     robot.move(1)
     robot.collect()`,
         },
         {
+          id: "loop-1",
+          name: { en: "Row of Three", de: "Reihe aus Drei", ru: "Ряд из трёх" },
+          size: 6,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars in a row using a loop.",
+            de: "Ziel: Sammle 3 Sterne in einer Reihe mit einer Schleife.",
+            ru: "Цель: собери 3 звезды в ряд с помощью цикла.",
+          },
+          description: {
+            en: "Use for _ in range(3): to repeat move and collect three times.",
+            de: "Benutze for _ in range(3):, um Bewegen und Sammeln dreimal zu wiederholen.",
+            ru: "Используй for _ in range(3):, чтобы повторить движение и сбор три раза.",
+          },
+          starterCode: `# Repeat 3 times with a loop
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-2",
+          name: { en: "Skip a Tile", de: "Ein Feld überspringen", ru: "Через клетку" },
+          size: 8,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [{ x: 2, y: 3 }, { x: 4, y: 3 }, { x: 6, y: 3 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars spaced 2 tiles apart using a loop.",
+            de: "Ziel: Sammle 3 Sterne mit Abstand 2 mit einer Schleife.",
+            ru: "Цель: собери 3 звезды с шагом 2, используя цикл.",
+          },
+          description: {
+            en: "The stars are 2 tiles apart. Use move(2) inside your loop.",
+            de: "Die Sterne haben 2 Felder Abstand. Benutze move(2) in der Schleife.",
+            ru: "Звёзды стоят через 2 клетки. Используй move(2) внутри цикла.",
+          },
+          starterCode: `# Stars are 2 apart — adjust the move!
+for _ in range(3):
+    robot.move(___)
+    robot.collect()`,
+        },
+        {
+          id: "loop-3",
+          name: { en: "Column South", de: "Spalte südwärts", ru: "Столбец на юг" },
+          size: 9,
+          start: { x: 0, y: 0, heading: 270 },
+          items: [
+            { x: 0, y: 1 }, { x: 0, y: 2 }, { x: 0, y: 3 },
+            { x: 0, y: 4 }, { x: 0, y: 5 }, { x: 0, y: 6 }, { x: 0, y: 7 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 7 stars going south using a loop.",
+            de: "Ziel: Sammle 7 Sterne nach Süden mit einer Schleife.",
+            ru: "Цель: собери 7 звёзд, двигаясь на юг с помощью цикла.",
+          },
+          description: {
+            en: "The robot faces south (heading 270). Use a loop to collect the whole column.",
+            de: "Der Roboter schaut nach Süden (Richtung 270). Benutze eine Schleife für die ganze Spalte.",
+            ru: "Робот смотрит на юг (направление 270). Используй цикл для сбора всего столбца.",
+          },
+          starterCode: `# Facing south — collect the whole column
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-4",
+          name: { en: "Offset Start", de: "Versetzter Start", ru: "Смещённый старт" },
+          size: 8,
+          start: { x: 1, y: 0, heading: 0 },
+          items: [{ x: 2, y: 0 }, { x: 3, y: 0 }, { x: 4, y: 0 }, { x: 5, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 4 stars starting from position x=1.",
+            de: "Ziel: Sammle 4 Sterne mit Start an Position x=1.",
+            ru: "Цель: собери 4 звезды, начиная с позиции x=1.",
+          },
+          description: {
+            en: "The robot starts one tile ahead. Use a loop to collect the 4 stars.",
+            de: "Der Roboter startet ein Feld früher. Benutze eine Schleife für die 4 Sterne.",
+            ru: "Робот начинает на одну клетку вперёд. Используй цикл для сбора 4 звёзд.",
+          },
+          starterCode: `# Start is offset — how many repeats?
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-5",
+          name: { en: "Wide Gaps", de: "Weite Lücken", ru: "Большие промежутки" },
+          size: 10,
+          start: { x: 0, y: 5, heading: 0 },
+          items: [{ x: 2, y: 5 }, { x: 4, y: 5 }, { x: 6, y: 5 }, { x: 8, y: 5 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 4 evenly-spaced stars.",
+            de: "Ziel: Sammle 4 gleichmäßig verteilte Sterne.",
+            ru: "Цель: собери 4 равномерно расположенных звезды.",
+          },
+          description: {
+            en: "Stars are 2 tiles apart. Use move(2) inside a loop.",
+            de: "Sterne haben 2 Felder Abstand. Benutze move(2) in einer Schleife.",
+            ru: "Звёзды расположены через 2 клетки. Используй move(2) внутри цикла.",
+          },
+          starterCode: `# 4 stars, 2 tiles apart each
+for _ in range(___):
+    robot.move(___)
+    robot.collect()`,
+        },
+        {
+          id: "loop-6",
+          name: { en: "Long Row", de: "Lange Reihe", ru: "Длинный ряд" },
+          size: 7,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [
+            { x: 1, y: 3 }, { x: 2, y: 3 }, { x: 3, y: 3 },
+            { x: 4, y: 3 }, { x: 5, y: 3 }, { x: 6, y: 3 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 6 stars filling the whole row.",
+            de: "Ziel: Sammle 6 Sterne, die die ganze Reihe füllen.",
+            ru: "Цель: собери 6 звёзд, заполняющих весь ряд.",
+          },
+          description: {
+            en: "Six stars fill the entire row. Use a loop to collect them all.",
+            de: "Sechs Sterne füllen die gesamte Reihe. Benutze eine Schleife, um alle zu sammeln.",
+            ru: "Шесть звёзд заполняют весь ряд. Используй цикл, чтобы собрать их все.",
+          },
+          starterCode: `# Six stars — use a loop!
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-7",
+          name: { en: "Going North", de: "Nach Norden", ru: "На север" },
+          size: 8,
+          start: { x: 0, y: 7, heading: 90 },
+          items: [
+            { x: 0, y: 6 }, { x: 0, y: 5 }, { x: 0, y: 4 }, { x: 0, y: 3 }, { x: 0, y: 2 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 5 stars going north.",
+            de: "Ziel: Sammle 5 Sterne auf dem Weg nach Norden.",
+            ru: "Цель: собери 5 звёзд, двигаясь на север.",
+          },
+          description: {
+            en: "The robot faces north. Use a loop to collect the column of stars above.",
+            de: "Der Roboter schaut nach Norden. Benutze eine Schleife für die Sternenspalte darüber.",
+            ru: "Робот смотрит на север. Используй цикл для сбора столбца звёзд выше.",
+          },
+          starterCode: `# Facing north — collect the column
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-8",
+          name: { en: "Full Row", de: "Volle Reihe", ru: "Полный ряд" },
+          size: 9,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [
+            { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 }, { x: 4, y: 0 },
+            { x: 5, y: 0 }, { x: 6, y: 0 }, { x: 7, y: 0 }, { x: 8, y: 0 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 8 stars filling the whole top row.",
+            de: "Ziel: Sammle 8 Sterne, die die ganze obere Reihe füllen.",
+            ru: "Цель: собери 8 звёзд, заполняющих весь верхний ряд.",
+          },
+          description: {
+            en: "The entire top row is filled with stars. Use range(8) in your loop.",
+            de: "Die gesamte obere Reihe ist mit Sternen gefüllt. Benutze range(8) in deiner Schleife.",
+            ru: "Весь верхний ряд заполнен звёздами. Используй range(8) в цикле.",
+          },
+          starterCode: `# Fill the whole row — use range(8)
+for _ in range(___):
+    robot.move(1)
+    robot.collect()`,
+        },
+        {
+          id: "loop-9",
+          name: { en: "Big Steps", de: "Große Schritte", ru: "Большие шаги" },
+          size: 10,
+          start: { x: 0, y: 9, heading: 0 },
+          items: [{ x: 3, y: 9 }, { x: 6, y: 9 }, { x: 9, y: 9 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars with 3 steps between each.",
+            de: "Ziel: Sammle 3 Sterne mit je 3 Schritten Abstand.",
+            ru: "Цель: собери 3 звезды с шагом 3 между каждой.",
+          },
+          description: {
+            en: "Stars are 3 tiles apart. Use move(3) inside your loop.",
+            de: "Die Sterne haben 3 Felder Abstand. Benutze move(3) in deiner Schleife.",
+            ru: "Звёзды стоят через 3 клетки. Используй move(3) внутри цикла.",
+          },
+          starterCode: `# Each star is 3 steps away
+for _ in range(___):
+    robot.move(___)
+    robot.collect()`,
+        },
+        {
+          id: "loop-10",
+          name: { en: "North Column", de: "Nordspalte", ru: "Северный столбец" },
+          size: 10,
+          start: { x: 9, y: 9, heading: 90 },
+          items: [{ x: 9, y: 7 }, { x: 9, y: 5 }, { x: 9, y: 3 }, { x: 9, y: 1 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 4 stars going north with 2 steps each.",
+            de: "Ziel: Sammle 4 Sterne nordwärts mit je 2 Schritten Abstand.",
+            ru: "Цель: собери 4 звезды, двигаясь на север с шагом 2.",
+          },
+          description: {
+            en: "Heading north, use move(2) inside a loop to reach each star.",
+            de: "Richtung Norden: benutze move(2) in einer Schleife, um jeden Stern zu erreichen.",
+            ru: "Двигаясь на север, используй move(2) внутри цикла для каждой звезды.",
+          },
+          starterCode: `# Stars are 2 apart — heading north
+for _ in range(___):
+    robot.move(___)
+    robot.collect()`,
+        },
+
+        // ── MAZE: 1 demo + 10 practice ──────────────────────────────────────────
+        {
           id: "maze",
-          name: "The Maze",
+          name: {
+            en: "The Maze (Demo)",
+            de: "Das Labyrinth (Demo)",
+            ru: "Лабиринт (Демо)",
+          },
           size: 10,
           start: { x: 0, y: 9, heading: 0 },
           items: [{ x: 9, y: 0 }],
@@ -291,42 +1099,510 @@ for _ in range(5):
             [7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6], [7, 7],
             [2, 8], [3, 8], [4, 8],
           ],
-          goalText: "Goal: navigate the maze and collect the treasure.",
-          description:
-            "Find a path through the maze to the treasure in the top-right corner. Plan your route step by step!",
+          goalText: {
+            en: "Goal: navigate the maze and collect the treasure.",
+            de: "Ziel: Navigiere durch das Labyrinth und sammle den Schatz.",
+            ru: "Цель: пройди лабиринт и собери сокровище.",
+          },
+          description: {
+            en: "Find a path through the maze to the treasure in the top-right corner. Plan your route step by step!",
+            de: "Finde den Weg durch das Labyrinth zum Schatz in der oberen rechten Ecke. Plane Schritt für Schritt!",
+            ru: "Найди путь через лабиринт к сокровищу в правом верхнем углу. Планируй маршрут шаг за шагом!",
+          },
           starterCode: `# Hint: try small steps and turns
 for _ in range(9):
     robot.move(1)`,
         },
         {
+          id: "maze-1",
+          name: { en: "First Maze", de: "Erstes Labyrinth", ru: "Первый лабиринт" },
+          size: 7,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 6, y: 6 }],
+          walls: [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4]],
+          goalText: {
+            en: "Goal: navigate around the wall to the star.",
+            de: "Ziel: Navigiere um die Wand herum zum Stern.",
+            ru: "Цель: обойди стену и доберись до звезды.",
+          },
+          description: {
+            en: "A vertical wall blocks the east path. Find a way around it.",
+            de: "Eine vertikale Wand blockiert den Ostweg. Finde einen Weg drum herum.",
+            ru: "Вертикальная стена блокирует восточный путь. Найди обходной путь.",
+          },
+          starterCode: `# A wall blocks the east path — go around!
+`,
+        },
+        {
+          id: "maze-2",
+          name: { en: "Horizontal Wall", de: "Horizontale Wand", ru: "Горизонтальная стена" },
+          size: 7,
+          start: { x: 0, y: 6, heading: 0 },
+          items: [{ x: 6, y: 0 }],
+          walls: [[0, 3], [1, 3], [2, 3], [3, 3], [4, 3]],
+          goalText: {
+            en: "Goal: get past the wall and reach the top-right star.",
+            de: "Ziel: Komme an der Wand vorbei und erreiche den Stern oben rechts.",
+            ru: "Цель: пройди мимо стены и достигни звезды вверху справа.",
+          },
+          description: {
+            en: "A horizontal wall blocks the north path. The gap is on the right side.",
+            de: "Eine horizontale Wand blockiert den Nordweg. Die Lücke befindet sich rechts.",
+            ru: "Горизонтальная стена блокирует путь на север. Просвет находится справа.",
+          },
+          starterCode: `# Wall blocks north — find the gap on the right!
+`,
+        },
+        {
+          id: "maze-3",
+          name: { en: "Corner Trap", de: "Eckenfalle", ru: "Угловая ловушка" },
+          size: 8,
+          start: { x: 0, y: 7, heading: 0 },
+          items: [{ x: 7, y: 0 }],
+          walls: [
+            [0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [0, 6],
+            [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3],
+          ],
+          goalText: {
+            en: "Goal: navigate two barriers to reach the top-right star.",
+            de: "Ziel: Navigiere durch zwei Barrieren zum Stern oben rechts.",
+            ru: "Цель: пройди две преграды и достигни звезды вверху справа.",
+          },
+          description: {
+            en: "Two walls create a zigzag. Head east first, then go north all the way.",
+            de: "Zwei Wände erzeugen einen Zickzack. Fahre zuerst nach Osten, dann ganz nach Norden.",
+            ru: "Две стены создают зигзаг. Сначала двигайся на восток, затем весь путь на север.",
+          },
+          starterCode: `# Go east first, then north to the top
+`,
+        },
+        {
+          id: "maze-4",
+          name: { en: "Double Barrier", de: "Doppelte Barriere", ru: "Двойной барьер" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 270 },
+          items: [{ x: 7, y: 7 }],
+          walls: [
+            [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3], [7, 3],
+            [0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5],
+          ],
+          goalText: {
+            en: "Goal: cross two barriers to reach the bottom-right star.",
+            de: "Ziel: Überquere zwei Barrieren und erreiche den Stern unten rechts.",
+            ru: "Цель: пересеки два барьера и достигни звезды внизу справа.",
+          },
+          description: {
+            en: "The robot faces south. Use the gaps in each horizontal barrier to weave through.",
+            de: "Der Roboter schaut nach Süden. Nutze die Lücken in den Barrieren, um durchzufahren.",
+            ru: "Робот смотрит на юг. Используй просветы в каждом барьере, чтобы пробраться.",
+          },
+          starterCode: `# Facing south — navigate through two barriers
+`,
+        },
+        {
+          id: "maze-5",
+          name: { en: "Wide Maze", de: "Breites Labyrinth", ru: "Широкий лабиринт" },
+          size: 9,
+          start: { x: 0, y: 8, heading: 0 },
+          items: [{ x: 8, y: 0 }],
+          walls: [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
+          goalText: {
+            en: "Goal: cross the long barrier and reach the top-right star.",
+            de: "Ziel: Überquere die lange Barriere und erreiche den Stern oben rechts.",
+            ru: "Цель: пересеки длинный барьер и доберись до звезды вверху справа.",
+          },
+          description: {
+            en: "A long wall blocks the way. Find the single gap on the far right to cross.",
+            de: "Eine lange Wand blockiert den Weg. Finde die Lücke ganz rechts zum Überqueren.",
+            ru: "Длинная стена перегораживает путь. Найди единственный просвет справа.",
+          },
+          starterCode: `# Cross the barrier through the right gap
+`,
+        },
+        {
+          id: "maze-6",
+          name: { en: "South Start", de: "Südstart", ru: "Старт с юга" },
+          size: 9,
+          start: { x: 8, y: 0, heading: 270 },
+          items: [{ x: 0, y: 8 }],
+          walls: [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6], [3, 7]],
+          goalText: {
+            en: "Goal: navigate south then west to the star.",
+            de: "Ziel: Navigiere nach Süden, dann nach Westen zum Stern.",
+            ru: "Цель: двигайся на юг, затем на запад к звезде.",
+          },
+          description: {
+            en: "The robot faces south. A vertical wall blocks going west early — go around the bottom.",
+            de: "Der Roboter schaut nach Süden. Eine Wand blockiert früh — umgehe sie unten.",
+            ru: "Робот смотрит на юг. Вертикальная стена блокирует ранний путь на запад — обойди снизу.",
+          },
+          starterCode: `# South first, then west along the bottom
+`,
+        },
+        {
+          id: "maze-7",
+          name: { en: "Long Maze", de: "Langes Labyrinth", ru: "Длинный лабиринт" },
+          size: 10,
+          start: { x: 0, y: 9, heading: 0 },
+          items: [{ x: 9, y: 0 }],
+          walls: [[0, 5], [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5], [7, 5], [8, 5]],
+          goalText: {
+            en: "Goal: cross the barrier and reach the top-right corner.",
+            de: "Ziel: Überquere die Barriere und erreiche die obere rechte Ecke.",
+            ru: "Цель: пересеки барьер и достигни правого верхнего угла.",
+          },
+          description: {
+            en: "A long wall divides the grid. The one gap is on the far right.",
+            de: "Eine lange Wand teilt das Feld. Die einzige Lücke liegt ganz rechts.",
+            ru: "Длинная стена делит поле. Единственный просвет — крайне справа.",
+          },
+          starterCode: `# Find the gap on the right side of the wall
+`,
+        },
+        {
+          id: "maze-8",
+          name: { en: "Two Walls", de: "Zwei Wände", ru: "Две стены" },
+          size: 10,
+          start: { x: 9, y: 9, heading: 180 },
+          items: [{ x: 0, y: 0 }],
+          walls: [
+            [6, 0], [6, 1], [6, 2], [6, 3], [6, 4], [6, 5], [6, 6], [6, 7],
+            [2, 2], [2, 3], [2, 4], [2, 5], [2, 6], [2, 7], [2, 8], [2, 9],
+          ],
+          goalText: {
+            en: "Goal: navigate two vertical walls to the top-left corner.",
+            de: "Ziel: Navigiere durch zwei vertikale Wände zur oberen linken Ecke.",
+            ru: "Цель: обойди две вертикальные стены и достигни левого верхнего угла.",
+          },
+          description: {
+            en: "Two tall walls block the path. Weave through the gaps to reach the star.",
+            de: "Zwei hohe Wände versperren den Weg. Fahre durch die Lücken zum Stern.",
+            ru: "Две высокие стены перегораживают путь. Пробирайся через просветы к звезде.",
+          },
+          starterCode: `# Facing west — weave through two walls
+`,
+        },
+        {
+          id: "maze-9",
+          name: { en: "Blocked Center", de: "Blockierte Mitte", ru: "Заблокированный центр" },
+          size: 10,
+          start: { x: 0, y: 9, heading: 0 },
+          items: [{ x: 9, y: 0 }],
+          walls: [[4, 1], [4, 2], [4, 3], [4, 4], [4, 5], [4, 6], [4, 7], [4, 8], [4, 9]],
+          goalText: {
+            en: "Goal: get past the central wall to the top-right.",
+            de: "Ziel: Komme an der Mittelwand vorbei nach oben rechts.",
+            ru: "Цель: обойди центральную стену и достигни правого верхнего угла.",
+          },
+          description: {
+            en: "A tall wall blocks the center. Go north first to get around it.",
+            de: "Eine hohe Wand blockiert die Mitte. Fahre zuerst nach Norden, um sie zu umgehen.",
+            ru: "Высокая стена перекрывает центр. Сначала иди на север, чтобы обойти её.",
+          },
+          starterCode: `# Go north first, then east past the wall
+`,
+        },
+        {
+          id: "maze-10",
+          name: { en: "C-Shaped Wall", de: "C-förmige Wand", ru: "C-образная стена" },
+          size: 10,
+          start: { x: 0, y: 5, heading: 0 },
+          items: [{ x: 9, y: 5 }],
+          walls: [
+            [3, 5], [3, 4], [3, 3], [3, 2], [3, 1], [3, 0],
+            [4, 0], [5, 0], [6, 0], [7, 0], [8, 0], [9, 0],
+            [9, 1], [9, 2], [9, 3], [9, 4],
+          ],
+          goalText: {
+            en: "Goal: navigate around the C-shaped wall to the star.",
+            de: "Ziel: Navigiere um die C-förmige Wand zum Stern.",
+            ru: "Цель: обойди C-образную стену и доберись до звезды.",
+          },
+          description: {
+            en: "A C-shaped wall blocks the direct east path. Go south, then east, then north.",
+            de: "Eine C-förmige Wand blockiert den direkten Ostweg. Fahre süd, ost, dann nord.",
+            ru: "C-образная стена блокирует прямой путь на восток. Иди юг, восток, затем север.",
+          },
+          starterCode: `# East path is blocked — go via south
+`,
+        },
+
+        // ── SENSOR: 1 demo + 10 practice ────────────────────────────────────────
+        {
           id: "sensor",
-          name: "Look Before You Move",
+          name: {
+            en: "Look Before You Move (Demo)",
+            de: "Erst schauen, dann fahren (Demo)",
+            ru: "Сначала смотри, потом двигайся (Демо)",
+          },
           size: 9,
           start: { x: 0, y: 1, heading: 0 },
           items: [{ x: 6, y: 1 }],
           walls: [[7, 1]],
-          goalText: "Goal: reach the star without hitting the wall.",
-          description:
-            "Use robot.can_move() to check if the path ahead is clear. It returns True if you can move forward, False if there is a wall.",
+          goalText: {
+            en: "Goal: reach the star without hitting the wall.",
+            de: "Ziel: Erreiche den Stern, ohne gegen die Wand zu fahren.",
+            ru: "Цель: доберись до звезды, не врезавшись в стену.",
+          },
+          description: {
+            en: "Use robot.can_move() to check if the path ahead is clear. It returns True if you can move forward, False if there is a wall.",
+            de: "Benutze robot.can_move(), um zu prüfen, ob der Weg frei ist. True = frei, False = Wand.",
+            ru: "Используй robot.can_move(), чтобы проверить путь впереди. True — свободно, False — стена.",
+          },
           starterCode: `# Move until the wall blocks the way, then collect
 while robot.can_move():
     robot.move(1)
 robot.collect()`,
         },
         {
+          id: "sensor-1",
+          name: { en: "Wall Ahead", de: "Wand voraus", ru: "Стена впереди" },
+          size: 7,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [{ x: 4, y: 3 }],
+          walls: [[5, 3]],
+          goalText: {
+            en: "Goal: stop just before the wall and collect the star.",
+            de: "Ziel: Stoppe kurz vor der Wand und sammle den Stern.",
+            ru: "Цель: остановись прямо перед стеной и собери звезду.",
+          },
+          description: {
+            en: "Use while robot.can_move(): to move forward safely, then collect.",
+            de: "Benutze while robot.can_move():, um sicher vorwärtszufahren, dann sammle ein.",
+            ru: "Используй while robot.can_move():, чтобы безопасно двигаться, затем собери.",
+          },
+          starterCode: `# Move until the wall, then collect
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-2",
+          name: { en: "Heading North", de: "Richtung Norden", ru: "Направление север" },
+          size: 8,
+          start: { x: 4, y: 7, heading: 90 },
+          items: [{ x: 4, y: 3 }],
+          walls: [[4, 2]],
+          goalText: {
+            en: "Goal: move north and collect the star before the wall.",
+            de: "Ziel: Fahre nach Norden und sammle den Stern vor der Wand.",
+            ru: "Цель: двигайся на север и собери звезду перед стеной.",
+          },
+          description: {
+            en: "Heading north, use can_move() to stop automatically before the wall.",
+            de: "Richtung Norden: benutze can_move(), um automatisch vor der Wand zu stoppen.",
+            ru: "Двигаясь на север, используй can_move(), чтобы автоматически остановиться перед стеной.",
+          },
+          starterCode: `# Heading north — stop before the wall
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-3",
+          name: { en: "Long Corridor", de: "Langer Korridor", ru: "Длинный коридор" },
+          size: 9,
+          start: { x: 0, y: 5, heading: 0 },
+          items: [{ x: 6, y: 5 }],
+          walls: [[7, 5]],
+          goalText: {
+            en: "Goal: travel the long corridor and collect the star.",
+            de: "Ziel: Durchfahre den langen Korridor und sammle den Stern.",
+            ru: "Цель: пройди длинный коридор и собери звезду.",
+          },
+          description: {
+            en: "The star is far away. Use can_move() to travel the whole distance safely.",
+            de: "Der Stern ist weit. Benutze can_move(), um die gesamte Strecke sicher zu fahren.",
+            ru: "Звезда далеко. Используй can_move(), чтобы безопасно преодолеть весь путь.",
+          },
+          starterCode: `# Follow the corridor to the star
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-4",
+          name: { en: "Going South", de: "Nach Süden", ru: "На юг" },
+          size: 8,
+          start: { x: 3, y: 0, heading: 270 },
+          items: [{ x: 3, y: 5 }],
+          walls: [[3, 6]],
+          goalText: {
+            en: "Goal: move south and collect the star before the wall.",
+            de: "Ziel: Fahre nach Süden und sammle den Stern vor der Wand.",
+            ru: "Цель: двигайся на юг и собери звезду перед стеной.",
+          },
+          description: {
+            en: "The robot faces south. Use can_move() to stop at the wall at the bottom.",
+            de: "Der Roboter schaut nach Süden. Benutze can_move(), um vor der unteren Wand zu stoppen.",
+            ru: "Робот смотрит на юг. Используй can_move(), чтобы остановиться перед нижней стеной.",
+          },
+          starterCode: `# Going south — stop before the wall
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-5",
+          name: { en: "Short Stop", de: "Kurzer Stop", ru: "Короткая остановка" },
+          size: 6,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 3, y: 0 }],
+          walls: [[4, 0]],
+          goalText: {
+            en: "Goal: stop quickly before the nearby wall.",
+            de: "Ziel: Stoppe schnell vor der nahen Wand.",
+            ru: "Цель: быстро остановись перед близкой стеной.",
+          },
+          description: {
+            en: "A wall is close ahead. Use can_move() so the robot stops automatically.",
+            de: "Eine Wand liegt nahe. Benutze can_move(), damit der Roboter automatisch stoppt.",
+            ru: "Стена близко. Используй can_move(), чтобы робот остановился автоматически.",
+          },
+          starterCode: `# Close wall — let can_move() handle it
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-6",
+          name: { en: "Count the Steps", de: "Schritte zählen", ru: "Считай шаги" },
+          size: 8,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 5, y: 4 }],
+          walls: [[6, 4]],
+          goalText: {
+            en: "Goal: count how many steps to the wall, then collect.",
+            de: "Ziel: Zähle die Schritte bis zur Wand, dann sammle.",
+            ru: "Цель: посчитай шаги до стены, затем собери.",
+          },
+          description: {
+            en: "Use a counter variable inside the while loop to count steps, then print it.",
+            de: "Benutze eine Zählervariable in der while-Schleife, dann gib sie mit print aus.",
+            ru: "Используй переменную-счётчик внутри цикла while, затем выведи результат через print.",
+          },
+          starterCode: `# Count steps with a variable
+steps = 0
+while robot.can_move():
+    robot.move(1)
+    steps += 1
+robot.collect()
+print("Steps taken:", steps)`,
+        },
+        {
+          id: "sensor-7",
+          name: { en: "Downward Journey", de: "Reise nach unten", ru: "Путь вниз" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 270 },
+          items: [{ x: 0, y: 4 }],
+          walls: [[0, 5]],
+          goalText: {
+            en: "Goal: move south and collect the star before the wall.",
+            de: "Ziel: Fahre nach Süden und sammle den Stern vor der Wand.",
+            ru: "Цель: двигайся на юг и собери звезду перед стеной.",
+          },
+          description: {
+            en: "The robot faces south from the top. Use can_move() to stop at the right spot.",
+            de: "Der Roboter schaut von oben nach Süden. Benutze can_move(), um an der richtigen Stelle zu stoppen.",
+            ru: "Робот смотрит на юг с верхнего края. Используй can_move(), чтобы остановиться в нужном месте.",
+          },
+          starterCode: `# Heading south from the top — stop at the wall
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-8",
+          name: { en: "Far Wall", de: "Weit entfernte Wand", ru: "Далёкая стена" },
+          size: 10,
+          start: { x: 0, y: 9, heading: 0 },
+          items: [{ x: 7, y: 9 }],
+          walls: [[8, 9]],
+          goalText: {
+            en: "Goal: travel far east and collect the star.",
+            de: "Ziel: Fahre weit nach Osten und sammle den Stern.",
+            ru: "Цель: доберись далеко на восток и собери звезду.",
+          },
+          description: {
+            en: "The wall is far ahead. Let can_move() guide the robot to the star.",
+            de: "Die Wand ist weit voraus. Lass can_move() den Roboter zum Stern führen.",
+            ru: "Стена далеко впереди. Позволь can_move() направить робота к звезде.",
+          },
+          starterCode: `# Far wall — use can_move() to navigate
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-9",
+          name: { en: "East to South", de: "Ost nach Süd", ru: "Восток к югу" },
+          size: 9,
+          start: { x: 8, y: 0, heading: 270 },
+          items: [{ x: 8, y: 6 }],
+          walls: [[8, 7]],
+          goalText: {
+            en: "Goal: move south along the column and collect the star.",
+            de: "Ziel: Fahre nach Süden entlang der Spalte und sammle den Stern.",
+            ru: "Цель: двигайся на юг вдоль столбца и собери звезду.",
+          },
+          description: {
+            en: "The robot is at the top of the right column, facing south. Use can_move().",
+            de: "Der Roboter ist oben in der rechten Spalte und schaut nach Süden. Benutze can_move().",
+            ru: "Робот находится вверху правого столбца, смотрит на юг. Используй can_move().",
+          },
+          starterCode: `# South along the column — stop at the wall
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+        {
+          id: "sensor-10",
+          name: { en: "Turn and Sense", de: "Drehen und Erspüren", ru: "Поворот и сенсор" },
+          size: 9,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 4, y: 4 }],
+          walls: [[5, 0], [4, 5]],
+          goalText: {
+            en: "Goal: use can_move() in two directions to find the star.",
+            de: "Ziel: Benutze can_move() in zwei Richtungen, um den Stern zu finden.",
+            ru: "Цель: используй can_move() в двух направлениях, чтобы найти звезду.",
+          },
+          description: {
+            en: "Move east until the wall, then turn south and move until the next wall. The star is just before it.",
+            de: "Fahre nach Osten bis zur Wand, dann nach Süden bis zur nächsten Wand. Der Stern liegt kurz davor.",
+            ru: "Двигайся на восток до стены, затем на юг до следующей стены. Звезда — прямо перед ней.",
+          },
+          starterCode: `# East until wall, then south until wall
+while robot.can_move():
+    robot.move(1)
+robot.turn(-90)
+while robot.can_move():
+    robot.move(1)
+robot.collect()`,
+        },
+
+        // ── FUNCTION: 1 demo + 10 practice ──────────────────────────────────────
+        {
           id: "trick",
-          name: "Teach the Robot a Trick",
+          name: {
+            en: "Teach the Robot a Trick (Demo)",
+            de: "Bringe dem Roboter einen Trick bei (Demo)",
+            ru: "Научи робота трюку (Демо)",
+          },
           size: 8,
           start: { x: 0, y: 1, heading: 0 },
-          items: [
-            { x: 2, y: 1 },
-            { x: 4, y: 1 },
-            { x: 6, y: 1 },
-          ],
+          items: [{ x: 2, y: 1 }, { x: 4, y: 1 }, { x: 6, y: 1 }],
           walls: [],
-          goalText: "Goal: collect only the stars, skip the empty tiles.",
-          description:
-            "Use robot.what_under() to check what is on the current tile. It returns 'star' if there is a star, or None if the tile is empty.",
+          goalText: {
+            en: "Goal: collect only the stars, skip the empty tiles.",
+            de: "Ziel: Sammle nur die Sterne, überspringe leere Felder.",
+            ru: "Цель: собирай только звёзды, пропускай пустые клетки.",
+          },
+          description: {
+            en: "Use robot.what_under() to check the current tile. It returns 'star' if there is a star, or None if empty.",
+            de: "Benutze robot.what_under(), um das aktuelle Feld zu prüfen. Gibt 'star' zurück, sonst None.",
+            ru: "Используй robot.what_under(), чтобы проверить текущую клетку. Возвращает 'star' или None.",
+          },
           starterCode: `# Define a helper function, then use it in a loop
 def grab_if_star():
     # Add your code: collect if robot.what_under() returns 'star'
@@ -336,10 +1612,287 @@ for _ in range(7):
     robot.move(1)
     grab_if_star()`,
         },
+        {
+          id: "fn-1",
+          name: { en: "Reusable Step", de: "Wiederverwendbarer Schritt", ru: "Многоразовый шаг" },
+          size: 8,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 2, y: 4 }, { x: 4, y: 4 }, { x: 6, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars using a helper function.",
+            de: "Ziel: Sammle 3 Sterne mithilfe einer Hilfsfunktion.",
+            ru: "Цель: собери 3 звезды с помощью вспомогательной функции.",
+          },
+          description: {
+            en: "Define a function step() that moves 2 and collects. Call it 3 times.",
+            de: "Definiere eine Funktion step(), die 2 Schritte geht und sammelt. Rufe sie 3-mal auf.",
+            ru: "Определи функцию step(), которая делает 2 шага и собирает. Вызови её 3 раза.",
+          },
+          starterCode: `# Define a reusable step function
+def step():
+    robot.move(2)
+    robot.collect()
+
+step()
+step()
+step()`,
+        },
+        {
+          id: "fn-2",
+          name: { en: "Function with Parameter", de: "Funktion mit Parameter", ru: "Функция с параметром" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 1, y: 0 }, { x: 3, y: 0 }, { x: 5, y: 0 }, { x: 7, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 4 stars using a function that takes a distance.",
+            de: "Ziel: Sammle 4 Sterne mit einer Funktion, die eine Distanz entgegennimmt.",
+            ru: "Цель: собери 4 звезды с помощью функции, принимающей расстояние.",
+          },
+          description: {
+            en: "Define go(n) that moves n steps and collects. The gaps between stars differ.",
+            de: "Definiere go(n), das n Schritte geht und sammelt. Die Abstände zwischen Sternen variieren.",
+            ru: "Определи go(n), которая делает n шагов и собирает. Промежутки между звёздами разные.",
+          },
+          starterCode: `# Function with a distance parameter
+def go(n):
+    robot.move(n)
+    robot.collect()
+
+go(1)
+go(2)
+go(2)
+go(2)`,
+        },
+        {
+          id: "fn-3",
+          name: { en: "Recursive Collect", de: "Rekursives Sammeln", ru: "Рекурсивный сбор" },
+          size: 7,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [
+            { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 3, y: 0 },
+            { x: 4, y: 0 }, { x: 5, y: 0 }, { x: 6, y: 0 },
+          ],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 6 stars using a recursive function.",
+            de: "Ziel: Sammle 6 Sterne mit einer rekursiven Funktion.",
+            ru: "Цель: собери 6 звёзд с помощью рекурсивной функции.",
+          },
+          description: {
+            en: "Define collect_all(n) that calls itself until n is 0.",
+            de: "Definiere collect_all(n), das sich selbst aufruft, bis n gleich 0 ist.",
+            ru: "Определи collect_all(n), которая вызывает сама себя, пока n не равно 0.",
+          },
+          starterCode: `# Recursive function
+def collect_all(n):
+    if n == 0:
+        return
+    robot.move(1)
+    robot.collect()
+    collect_all(n - 1)
+
+collect_all(6)`,
+        },
+        {
+          id: "fn-4",
+          name: { en: "Check and Collect", de: "Prüfen und Sammeln", ru: "Проверяй и собирай" },
+          size: 9,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 2, y: 4 }, { x: 4, y: 4 }, { x: 6, y: 4 }, { x: 8, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: use what_under() inside a function to collect only stars.",
+            de: "Ziel: Benutze what_under() in einer Funktion, um nur Sterne zu sammeln.",
+            ru: "Цель: используй what_under() внутри функции, чтобы собирать только звёзды.",
+          },
+          description: {
+            en: "Define try_collect() using what_under(), then call it in a loop over every tile.",
+            de: "Definiere try_collect() mit what_under(), dann rufe es in einer Schleife auf.",
+            ru: "Определи try_collect() с what_under(), затем вызывай в цикле на каждой клетке.",
+          },
+          starterCode: `# Collect only tiles that have a star
+def try_collect():
+    if robot.what_under() == 'star':
+        robot.collect()
+
+for _ in range(8):
+    robot.move(1)
+    try_collect()`,
+        },
+        {
+          id: "fn-5",
+          name: { en: "Safe Move", de: "Sicheres Bewegen", ru: "Безопасное движение" },
+          size: 8,
+          start: { x: 0, y: 3, heading: 0 },
+          items: [{ x: 5, y: 3 }],
+          walls: [[6, 3]],
+          goalText: {
+            en: "Goal: use a function with can_move() to move safely.",
+            de: "Ziel: Benutze eine Funktion mit can_move(), um sicher zu fahren.",
+            ru: "Цель: используй функцию с can_move() для безопасного движения.",
+          },
+          description: {
+            en: "Define move_safe() that only moves if can_move() is True. Call it in a loop.",
+            de: "Definiere move_safe(), das sich nur bewegt, wenn can_move() True ist. In einer Schleife aufrufen.",
+            ru: "Определи move_safe(), которая двигается только если can_move() равно True. Вызывай в цикле.",
+          },
+          starterCode: `# Only move if the path is clear
+def move_safe():
+    if robot.can_move():
+        robot.move(1)
+
+for _ in range(6):
+    move_safe()
+robot.collect()`,
+        },
+        {
+          id: "fn-6",
+          name: { en: "Zigzag Collector", de: "Zickzack-Sammler", ru: "Зигзаг-сборщик" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 2, y: 0 }, { x: 2, y: 2 }, { x: 4, y: 2 }, { x: 4, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 4 stars on a zigzag path using a function.",
+            de: "Ziel: Sammle 4 Sterne auf einem Zickzack-Pfad mit einer Funktion.",
+            ru: "Цель: собери 4 звезды по зигзаг-маршруту с помощью функции.",
+          },
+          description: {
+            en: "Define check_and_collect() that uses what_under() to collect if there is a star.",
+            de: "Definiere check_and_collect(), das what_under() benutzt, um bei einem Stern zu sammeln.",
+            ru: "Определи check_and_collect(), которая использует what_under() для сбора при наличии звезды.",
+          },
+          starterCode: `# Check each spot and collect if star
+def check_and_collect():
+    if robot.what_under() == 'star':
+        robot.collect()
+
+robot.move(2)
+check_and_collect()
+robot.turn(-90)
+robot.move(2)
+check_and_collect()
+robot.turn(90)
+robot.move(2)
+check_and_collect()
+robot.turn(-90)
+robot.move(2)
+check_and_collect()`,
+        },
+        {
+          id: "fn-7",
+          name: { en: "Two Helpers", de: "Zwei Hilfsfunktionen", ru: "Два помощника" },
+          size: 8,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 3, y: 0 }, { x: 3, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 2 stars using two helper functions.",
+            de: "Ziel: Sammle 2 Sterne mithilfe von zwei Hilfsfunktionen.",
+            ru: "Цель: собери 2 звезды с помощью двух вспомогательных функций.",
+          },
+          description: {
+            en: "Define go_to(n) that moves n steps. Use it to reach both stars.",
+            de: "Definiere go_to(n), das n Schritte geht. Benutze es, um beide Sterne zu erreichen.",
+            ru: "Определи go_to(n), которая делает n шагов. Используй её для достижения обеих звёзд.",
+          },
+          starterCode: `# One function, used in two directions
+def go_to(n):
+    for _ in range(n):
+        robot.move(1)
+
+go_to(3)
+robot.collect()
+robot.turn(-90)
+go_to(4)
+robot.collect()`,
+        },
+        {
+          id: "fn-8",
+          name: { en: "Debug with Print", de: "Debuggen mit Print", ru: "Отладка с print" },
+          size: 7,
+          start: { x: 0, y: 0, heading: 0 },
+          items: [{ x: 1, y: 0 }, { x: 3, y: 0 }, { x: 5, y: 0 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 3 stars and print a message after each.",
+            de: "Ziel: Sammle 3 Sterne und gib nach jedem eine Nachricht aus.",
+            ru: "Цель: собери 3 звезды и выведи сообщение после каждой.",
+          },
+          description: {
+            en: "Define move_and_collect(n) that moves, checks for a star, collects and prints.",
+            de: "Definiere move_and_collect(n), das bewegt, prüft, sammelt und ausgibt.",
+            ru: "Определи move_and_collect(n), которая двигается, проверяет, собирает и выводит сообщение.",
+          },
+          starterCode: `# Move, collect, and report
+def move_and_collect(steps):
+    robot.move(steps)
+    if robot.what_under() == 'star':
+        robot.collect()
+        print("Star collected!")
+
+move_and_collect(1)
+move_and_collect(2)
+move_and_collect(2)`,
+        },
+        {
+          id: "fn-9",
+          name: { en: "Jump Function", de: "Sprung-Funktion", ru: "Функция прыжка" },
+          size: 9,
+          start: { x: 0, y: 4, heading: 0 },
+          items: [{ x: 3, y: 4 }, { x: 6, y: 4 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect 2 stars by calling a jump() function twice.",
+            de: "Ziel: Sammle 2 Sterne, indem du eine jump()-Funktion zweimal aufrufst.",
+            ru: "Цель: собери 2 звезды, дважды вызвав функцию jump().",
+          },
+          description: {
+            en: "Define jump() that moves 3 steps and collects. Call it twice.",
+            de: "Definiere jump(), das 3 Schritte geht und sammelt. Rufe es zweimal auf.",
+            ru: "Определи jump(), которая делает 3 шага и собирает. Вызови её дважды.",
+          },
+          starterCode: `# Define and call jump() twice
+def jump():
+    robot.move(3)
+    robot.collect()
+
+jump()
+jump()`,
+        },
+        {
+          id: "fn-10",
+          name: { en: "Smart Dash", de: "Schlaues Rasen", ru: "Умный рывок" },
+          size: 10,
+          start: { x: 0, y: 5, heading: 0 },
+          items: [{ x: 2, y: 5 }, { x: 5, y: 5 }, { x: 8, y: 5 }],
+          walls: [],
+          goalText: {
+            en: "Goal: collect all 3 stars using a dash() function with what_under().",
+            de: "Ziel: Sammle alle 3 Sterne mit einer dash()-Funktion und what_under().",
+            ru: "Цель: собери все 3 звезды с помощью функции dash() и what_under().",
+          },
+          description: {
+            en: "Define dash(n) that moves n steps one at a time and collects any star it lands on.",
+            de: "Definiere dash(n), das n Schritte einzeln geht und jeden gefundenen Stern einsammelt.",
+            ru: "Определи dash(n), которая делает n шагов по одному и собирает каждую найденную звезду.",
+          },
+          starterCode: `# Dash forward and collect any star you find
+def dash(n):
+    for _ in range(n):
+        robot.move(1)
+        if robot.what_under() == 'star':
+            robot.collect()
+
+dash(9)`,
+        },
       ];
 
       const state = {
         taskId: tasks[0].id,
+        lang: "en",
         actor: null,
         itemsLeft: [],
         completed: loadProgress(),
@@ -352,6 +1905,7 @@ for _ in range(7):
       };
 
       const taskSelect = document.getElementById("task-select");
+      const langSelect = document.getElementById("lang-select");
       const codeEl = document.getElementById("code");
       const runButton = document.getElementById("run");
       const stepRunButton = document.getElementById("run-step");
@@ -385,7 +1939,7 @@ for _ in range(7):
 
       function saveCode() {
         localStorage.setItem(`${STORAGE_KEYS.codePrefix}${state.taskId}`, getCodeValue());
-        print("Code saved locally.");
+        print(UI_TEXT[state.lang].saved);
       }
 
       function print(message) {
@@ -416,8 +1970,8 @@ for _ in range(7):
         const task = currentTask();
         state.actor = { ...task.start };
         state.itemsLeft = task.items.map((item) => ({ ...item }));
-        goalEl.textContent = task.goalText;
-        descEl.textContent = task.description;
+        goalEl.textContent = t(task.goalText);
+        descEl.textContent = t(task.description);
         draw();
       }
 
@@ -574,7 +2128,7 @@ for _ in range(7):
           state.completed[task.id] = true;
           saveProgress();
           renderProgress();
-          print(`✅ Task complete: ${task.name}`);
+          print(UI_TEXT[state.lang].taskComplete(t(task.name)));
         }
       }
 
@@ -660,7 +2214,7 @@ for _ in range(7):
         progressEl.innerHTML = "";
         for (const task of tasks) {
           const li = document.createElement("li");
-          li.textContent = `${state.completed[task.id] ? "✅" : "⬜"} ${task.name}`;
+          li.textContent = `${state.completed[task.id] ? "✅" : "⬜"} ${t(task.name)}`;
           progressEl.appendChild(li);
         }
       }
@@ -733,16 +2287,16 @@ for _ in range(7):
       async function setupPython() {
         state.pyodide = await loadPyodide();
         configurePythonApi(false);
-        engineStatusEl.textContent = "Python engine ready.";
+        engineStatusEl.textContent = UI_TEXT[state.lang].engineReady;
       }
 
       async function runUserCode(stepByStep = false) {
         if (!state.pyodide) {
-          print("Python is still loading.");
+          print(UI_TEXT[state.lang].pyLoading);
           return;
         }
         if (state.isRunning) {
-          print("Execution is already in progress.");
+          print(UI_TEXT[state.lang].running);
           return;
         }
 
@@ -793,7 +2347,7 @@ robot = Robot()
           }
 
           if (state.itemsLeft.length > 0) {
-            print(`Items left: ${state.itemsLeft.length}`);
+            print(UI_TEXT[state.lang].itemsLeft(state.itemsLeft.length));
           }
         } finally {
           state.isRunning = false;
@@ -803,12 +2357,36 @@ robot = Robot()
       }
 
       function initTaskOptions() {
+        taskSelect.innerHTML = "";
         for (const task of tasks) {
           const option = document.createElement("option");
           option.value = task.id;
-          option.textContent = task.name;
+          option.textContent = t(task.name);
           taskSelect.appendChild(option);
         }
+        taskSelect.value = state.taskId;
+      }
+
+      function applyLang() {
+        const ui = UI_TEXT[state.lang];
+        document.getElementById("app-title").textContent = ui.title;
+        document.querySelector("#lang-label span").textContent = ui.langLabel;
+        document.querySelector("#task-label span").textContent = ui.taskLabel;
+        document.querySelector("#code-label span").textContent = ui.codeLabel;
+        document.getElementById("run").textContent = ui.runBtn;
+        document.getElementById("run-step").textContent = ui.stepBtn;
+        document.getElementById("reset").textContent = ui.resetBtn;
+        document.getElementById("save").textContent = ui.saveBtn;
+        document.getElementById("output-header").textContent = ui.outputHeader;
+        document.getElementById("progress-header").textContent = ui.progressHeader;
+        if (engineStatusEl.textContent !== ui.engineLoading) {
+          engineStatusEl.textContent = state.pyodide ? ui.engineReady : ui.engineLoading;
+        }
+        initTaskOptions();
+        renderProgress();
+        const task = currentTask();
+        goalEl.textContent = t(task.goalText);
+        descEl.textContent = t(task.description);
       }
 
       initTaskOptions();
