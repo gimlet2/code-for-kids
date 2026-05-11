@@ -135,6 +135,35 @@
         gap: 8px;
       }
 
+      .result-banner {
+        margin-top: 10px;
+        border-radius: 8px;
+        padding: 12px 16px;
+        text-align: center;
+      }
+
+      .result-banner.success {
+        background: #dcfce7;
+        border: 1px solid #86efac;
+        color: #166534;
+      }
+
+      .result-banner.failure {
+        background: #fef9c3;
+        border: 1px solid #fde047;
+        color: #854d0e;
+      }
+
+      .result-banner .result-message {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0 0 10px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
       @media (max-width: 900px) {
         .layout {
           grid-template-columns: 1fr;
@@ -175,6 +204,13 @@
         <p class="goal" id="goal"></p>
         <h3>Output</h3>
         <pre id="output"></pre>
+        <div id="result-banner" class="result-banner hidden">
+          <p class="result-message" id="result-message"></p>
+          <div class="button-row" style="justify-content: center">
+            <button id="next-task">Next Task ➡️</button>
+            <button id="try-again" class="secondary">Try Again 🔄</button>
+          </div>
+        </div>
       </section>
     </main>
 
@@ -211,6 +247,18 @@
         "print",
         "True",
         "False",
+      ];
+      const SUCCESS_MESSAGES = [
+        "🎉 Amazing! You did it!",
+        "🌟 Brilliant work!",
+        "🥳 You're a coding star!",
+        "🏆 Awesome job, coder!",
+      ];
+      const FAILURE_MESSAGES = [
+        "😊 Good try! Give it another go!",
+        "💪 Don't give up — you've got this!",
+        "🤔 Almost there, try again!",
+        "👍 Coders learn from mistakes — keep going!",
       ];
 
       const tasks = [
@@ -362,9 +410,26 @@ for _ in range(7):
       const engineStatusEl = document.getElementById("engine-status");
       const canvas = document.getElementById("game");
       const ctx = canvas.getContext("2d");
+      const resultBannerEl = document.getElementById("result-banner");
+      const resultMessageEl = document.getElementById("result-message");
+      const nextTaskBtn = document.getElementById("next-task");
+      const tryAgainBtn = document.getElementById("try-again");
 
       function currentTask() {
         return tasks.find((t) => t.id === state.taskId);
+      }
+
+      function showResultBanner(type) {
+        const messages = type === "success" ? SUCCESS_MESSAGES : FAILURE_MESSAGES;
+        resultMessageEl.textContent = messages[Math.floor(Math.random() * messages.length)];
+        resultBannerEl.classList.remove("hidden", "success", "failure");
+        resultBannerEl.classList.add(type);
+        const currentIndex = tasks.findIndex((t) => t.id === state.taskId);
+        nextTaskBtn.style.display = currentIndex < tasks.length - 1 ? "" : "none";
+      }
+
+      function hideResultBanner() {
+        resultBannerEl.classList.add("hidden");
       }
 
       function loadProgress() {
@@ -671,6 +736,7 @@ for _ in range(7):
         const stored = getStoredCode(task.id);
         setCodeValue(stored || task.starterCode);
         resetTask();
+        hideResultBanner();
       }
 
       function configurePythonApi(stepByStep) {
@@ -750,9 +816,12 @@ for _ in range(7):
         runButton.disabled = true;
         stepRunButton.disabled = true;
 
+        let outcome = null;
+
         try {
           clearOutput();
           resetTask();
+          hideResultBanner();
           const userScript = `${getCodeValue()}\n`;
           const prelude = `from kid_game import _move, _turn, _collect, _can_move, _what_under
 
@@ -789,16 +858,21 @@ robot = Robot()
 
           if (executionError) {
             print(`❌ ${executionError.message || executionError}`);
-            return;
-          }
-
-          if (state.itemsLeft.length > 0) {
+            outcome = "failure";
+          } else if (state.itemsLeft.length > 0) {
             print(`Items left: ${state.itemsLeft.length}`);
+            outcome = "failure";
+          } else {
+            outcome = "success";
           }
         } finally {
           state.isRunning = false;
           runButton.disabled = false;
           stepRunButton.disabled = false;
+        }
+
+        if (outcome) {
+          showResultBanner(outcome);
         }
       }
 
@@ -822,8 +896,22 @@ robot = Robot()
       document.getElementById("reset").addEventListener("click", () => {
         resetTask();
         clearOutput();
+        hideResultBanner();
       });
       document.getElementById("save").addEventListener("click", saveCode);
+      nextTaskBtn.addEventListener("click", () => {
+        const currentIndex = tasks.findIndex((t) => t.id === state.taskId);
+        if (currentIndex < tasks.length - 1) {
+          const next = tasks[currentIndex + 1];
+          taskSelect.value = next.id;
+          loadTask(next.id);
+        }
+      });
+      tryAgainBtn.addEventListener("click", () => {
+        resetTask();
+        clearOutput();
+        hideResultBanner();
+      });
 
       setupPython().catch((err) => {
         engineStatusEl.textContent = "Failed to load Python engine.";
